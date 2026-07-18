@@ -1,0 +1,48 @@
+name: linux-installer
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Build native Linux installer
+        run: bun run --cwd packages/opencode script/build.ts --single --package --skip-install
+
+      - name: Verify installer contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="packages/opencode/dist/mimocode-linux-x64.tar.gz"
+          test -s "$archive"
+          sha256sum -c packages/opencode/dist/SHA256SUMS-linux.txt --ignore-missing
+          extract_dir="$(mktemp -d)"
+          trap 'rm -rf -- "$extract_dir"' EXIT
+          tar -xzf "$archive" -C "$extract_dir"
+          "$extract_dir/mimo" --version
+          for runtime in bugcrowd-mcp hackerone-mcp intigriti-mcp pentestercode-fusion pentesterflow-burp pentesterflow-core; do
+            test -s "$extract_dir/packages/pentestercode/runtime/$runtime.js"
+          done
+          config="$extract_dir/packages/pentestercode/mimocode.defaults.jsonc"
+          grep -Fq '__MIMOCODE_HOME__/runtime/bugcrowd-mcp.js' "$config"
+          grep -Fq '__MIMOCODE_HOME__/runtime/intigriti-mcp.js' "$config"
+          grep -Fq '__MIMOCODE_HOME__/runtime/hackerone-mcp.js' "$config"

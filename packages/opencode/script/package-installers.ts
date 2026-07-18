@@ -102,8 +102,9 @@ export async function bundleMcpRuntimeEntries(bundleDir: string) {
   ) {
     return []
   }
-  return Promise.all(
-    MCP_RUNTIME_ENTRYPOINTS.map(async ([name, file]) => {
+  return MCP_RUNTIME_ENTRYPOINTS.reduce(
+    async (entries, [name, file]) => {
+      const bundled = await entries
       const result = await Bun.build({
         entrypoints: [path.join(bundleDir, file)],
         target: "bun",
@@ -113,12 +114,16 @@ export async function bundleMcpRuntimeEntries(bundleDir: string) {
       if (!result.success || !result.outputs[0]) {
         throw new Error(`Failed to bundle ${file}: ${result.logs.map((log) => log.message).join("; ")}`)
       }
-      return {
-        name: `${BUNDLE_PREFIX}/runtime/${name}`,
-        content: new Uint8Array(await result.outputs[0].arrayBuffer()),
-        mode: 0o644,
-      }
-    }),
+      return [
+        ...bundled,
+        {
+          name: `${BUNDLE_PREFIX}/runtime/${name}`,
+          content: new Uint8Array(await result.outputs[0].arrayBuffer()),
+          mode: 0o644,
+        },
+      ]
+    },
+    Promise.resolve([] as ArchiveEntry[]),
   )
 }
 
