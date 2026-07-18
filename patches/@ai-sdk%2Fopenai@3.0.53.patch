@@ -1,0 +1,36 @@
+diff --git a/dist/index.js b/dist/index.js
+index 1c78d6f13caed5cbfa034d86f5e51729d540a1ba..baf561cea4fae7c8ce2257c0806d6603ce6c5506 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -6133,6 +6133,7 @@ var OpenAIResponsesLanguageModel = class {
+                 serviceTier = value.response.service_tier;
+               }
+             } else if (isResponseFailedChunk(value)) {
++              controller.enqueue({ type: "error", error: value });
+               const incompleteReason = (_y = value.response.incomplete_details) == null ? void 0 : _y.reason;
+               finishReason = {
+                 unified: incompleteReason ? mapOpenAIResponseFinishReason({
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 3dee8855a0cff4c2d5bef4ff1cb2a92a48bd8c4f..5963d8c5cf790fc1f8075e975ad6c631a8bb6217 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -6212,6 +6212,7 @@ var OpenAIResponsesLanguageModel = class {
+                 serviceTier = value.response.service_tier;
+               }
+             } else if (isResponseFailedChunk(value)) {
++              controller.enqueue({ type: "error", error: value });
+               const incompleteReason = (_y = value.response.incomplete_details) == null ? void 0 : _y.reason;
+               finishReason = {
+                 unified: incompleteReason ? mapOpenAIResponseFinishReason({
+diff --git a/src/responses/openai-responses-language-model.ts b/src/responses/openai-responses-language-model.ts
+index fe9616c8119e0d81750b4b367115aa1e58c9bc3d..531a1773ba88780cd1d0bf0250678b3ae83879f6 100644
+--- a/src/responses/openai-responses-language-model.ts
++++ b/src/responses/openai-responses-language-model.ts
+@@ -2007,6 +2007,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
+                 serviceTier = value.response.service_tier;
+               }
+             } else if (isResponseFailedChunk(value)) {
++              controller.enqueue({ type: 'error', error: value });
+               const incompleteReason =
+                 value.response.incomplete_details?.reason;
+               finishReason = {
