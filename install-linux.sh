@@ -64,7 +64,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-trap 'code=$?; printf "\033[1;31merror:\033[0m installation stopped at line %s (exit %s)\n" "$LINENO" "$code" >&2; exit "$code"' ERR
+on_error() {
+  code=$?
+  if [[ ${BASH_SUBSHELL:-0} -gt 0 ]]; then
+    exit "$code"
+  fi
+  printf "\033[1;31merror:\033[0m installation stopped at line %s (exit %s)\n" "$1" "$code" >&2
+  exit "$code"
+}
+
+trap 'on_error "$LINENO"' ERR
 
 run_as_root() {
   if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
@@ -136,16 +145,18 @@ fi
 [[ "$(realpath "$(git -C "$REPOSITORY_DIR" rev-parse --show-toplevel)")" == "$REPOSITORY_DIR" ]] ||
   die "refusing to clean dependencies outside the resolved repository root"
 
-if [[ -d "$REPOSITORY_DIR/node_modules" ]]; then
-  info "Removing the incomplete/rebuildable node_modules directory"
-  rm -rf -- "$REPOSITORY_DIR/node_modules"
-fi
-
-info "Installing project dependencies"
-(
+info "Checking project dependencies"
+if ! (
   cd "$REPOSITORY_DIR"
   bun install --frozen-lockfile
-)
+); then
+  info "The dependency tree is incomplete; rebuilding node_modules once"
+  rm -rf -- "$REPOSITORY_DIR/node_modules"
+  (
+    cd "$REPOSITORY_DIR"
+    bun install --frozen-lockfile
+  )
+fi
 
 machine="$(uname -m)"
 case "$machine" in

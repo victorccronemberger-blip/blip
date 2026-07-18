@@ -40,11 +40,15 @@ afterEach(async () => {
 })
 
 describe("installer packaging", () => {
-  test("Linux source installer repairs native dependencies before building", async () => {
+  test("Linux source installer reuses valid dependencies and repairs invalid dependencies before building", async () => {
     const script = await Bun.file(path.resolve(import.meta.dir, "../../../..", "install-linux.sh")).text()
 
     expect(script.indexOf("bun add --global node-gyp@12.3.0")).toBeLessThan(
       script.indexOf("bun install --frozen-lockfile"),
+    )
+    expect(script).toContain("if ! (\n  cd \"$REPOSITORY_DIR\"\n  bun install --frozen-lockfile")
+    expect(script.indexOf("bun install --frozen-lockfile")).toBeLessThan(
+      script.indexOf('rm -rf -- "$REPOSITORY_DIR/node_modules"'),
     )
     expect(script).toContain('rm -rf -- "$REPOSITORY_DIR/node_modules"')
     expect(script).toContain('rev-parse --show-toplevel')
