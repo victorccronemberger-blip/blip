@@ -63,8 +63,27 @@ describe("installer packaging", () => {
   })
 
   test("bundles every real MCP runtime without external packages", async () => {
-    const { bundleMcpRuntimeEntries } = await import("../../script/package-installers")
-    const entries = await bundleMcpRuntimeEntries(path.resolve(import.meta.dir, "../../../pentestercode"))
+    const root = path.resolve(import.meta.dir, "../../../..")
+    const process = Bun.spawn(
+      [
+        Bun.which("bun")!,
+        "-e",
+        [
+          'const { bundleMcpRuntimeEntries } = await import("./packages/opencode/script/package-installers.ts")',
+          'const entries = await bundleMcpRuntimeEntries("./packages/pentestercode")',
+          'console.log(JSON.stringify(entries.map((entry) => ({ name: entry.name, size: entry.content.length }))))',
+        ].join("; "),
+      ],
+      { cwd: root, stdout: "pipe", stderr: "pipe" },
+    )
+    const [exitCode, stdout, stderr] = await Promise.all([
+      process.exited,
+      new Response(process.stdout).text(),
+      new Response(process.stderr).text(),
+    ])
+
+    expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" })
+    const entries = JSON.parse(stdout) as { name: string; size: number }[]
 
     expect(entries.map((entry) => path.basename(entry.name)).sort()).toEqual(
       [
@@ -76,7 +95,7 @@ describe("installer packaging", () => {
         "pentesterflow-core.js",
       ].sort(),
     )
-    expect(entries.every((entry) => entry.content.length > 1000)).toBe(true)
+    expect(entries.every((entry) => entry.size > 1000)).toBe(true)
   })
 
   test("Linux source installer reuses valid dependencies and repairs invalid dependencies before building", async () => {
