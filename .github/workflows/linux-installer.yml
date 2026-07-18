@@ -36,7 +36,8 @@ jobs:
           test -s "$archive"
           (cd packages/opencode/dist && sha256sum -c SHA256SUMS-linux.txt --ignore-missing)
           extract_dir="$(mktemp -d)"
-          trap 'rm -rf -- "$extract_dir"' EXIT
+          install_home="$(mktemp -d)"
+          trap 'rm -rf -- "$extract_dir" "$install_home"' EXIT
           tar -xzf "$archive" -C "$extract_dir"
           "$extract_dir/mimo" --version
           for runtime in bugcrowd-mcp hackerone-mcp intigriti-mcp pentestercode-fusion pentesterflow-burp pentesterflow-core; do
@@ -46,3 +47,10 @@ jobs:
           grep -Fq '__MIMOCODE_HOME__/runtime/bugcrowd-mcp.js' "$config"
           grep -Fq '__MIMOCODE_HOME__/runtime/intigriti-mcp.js' "$config"
           grep -Fq '__MIMOCODE_HOME__/runtime/hackerone-mcp.js' "$config"
+          HOME="$install_home" MIMOCODE_SKIP_DEPENDENCY_CHECK=1 \
+            "$extract_dir/install" --binary "$extract_dir/mimo" --no-modify-path
+          "$install_home/.mimocode/bin/mimo" --version
+          for platform in bugcrowd intigriti hackerone; do
+            test -s "$install_home/.mimocode/runtime/$platform-mcp.js"
+            grep -Fq "\"$platform\"" "$install_home/.mimocode/mimocode.jsonc"
+          done
