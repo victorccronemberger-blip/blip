@@ -23,6 +23,8 @@ async function createPentesterCodeBundle(dir: string) {
     "vendor/pentdem/__pycache__/cache.pyc": "must-not-ship",
     "reports/engagement.json": "must-not-ship",
     "test/runtime.test.ts": "must-not-ship",
+    "vendor/pentesterflow/src/runtime.test.ts": "must-not-ship",
+    "vendor/pentdem/test_pipeline.py": "must-not-ship",
   }
   await Promise.all(
     Object.entries(files).map(async ([name, content]) => {
@@ -69,6 +71,8 @@ describe("installer packaging", () => {
     expect(entries.map((entry) => entry.filename).some((entry) => entry.includes("__pycache__"))).toBe(false)
     expect(entries.map((entry) => entry.filename).some((entry) => entry.includes("reports/"))).toBe(false)
     expect(entries.map((entry) => entry.filename).some((entry) => entry.includes("/test/"))).toBe(false)
+    expect(entries.map((entry) => entry.filename).some((entry) => entry.includes(".test."))).toBe(false)
+    expect(entries.map((entry) => entry.filename).some((entry) => path.basename(entry).startsWith("test_"))).toBe(false)
     expect(entries.map((entry) => entry.filename)).toContain("install.ps1")
     expect(entries.map((entry) => entry.filename)).toContain("mimo.exe")
   })
@@ -107,6 +111,8 @@ describe("installer packaging", () => {
     expect(entries.map((entry) => entry.name).some((entry) => entry.includes("__pycache__"))).toBe(false)
     expect(entries.map((entry) => entry.name).some((entry) => entry.includes("reports/"))).toBe(false)
     expect(entries.map((entry) => entry.name).some((entry) => entry.includes("/test/"))).toBe(false)
+    expect(entries.map((entry) => entry.name).some((entry) => entry.includes(".test."))).toBe(false)
+    expect(entries.map((entry) => entry.name).some((entry) => path.basename(entry).startsWith("test_"))).toBe(false)
     expect(entries.filter((entry) => ["mimo", "install"].includes(entry.name)).every((entry) => entry.mode === "-rwxr-xr-x")).toBe(
       true,
     )

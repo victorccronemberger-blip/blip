@@ -97,6 +97,9 @@ async function bundleEntries(bundleDir?: string) {
       if (base === ".env" || (base.startsWith(".env.") && !base.endsWith(".example") && !base.endsWith(".sample"))) {
         return false
       }
+      if (base.includes(".test.") || base.includes(".spec.") || base.startsWith("test_") || base.endsWith("_test.py")) {
+        return false
+      }
       return !base.endsWith(".pem") && !base.endsWith(".key") && !base.includes("credentials")
     })
     .sort()
