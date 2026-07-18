@@ -38,6 +38,24 @@ npm install -g @mimo-ai/cli
 mimo
 ```
 
+### Build and install this GitHub fork on Linux
+
+The repository includes a source installer that installs the native toolchain, Bun and `node-gyp`, clones or updates the requested branch, repairs incomplete dependencies, builds the correct Linux artifact, verifies its SHA-256, installs MiMoCode and seeds PentesterCode:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/victorccronemberger-blip/blip/agent/platform-mcps/install-linux.sh | bash
+```
+
+From an existing checkout:
+
+```bash
+cd ~/blip
+git pull --ff-only
+bash install-linux.sh
+```
+
+An existing `~/.mimocode/mimocode.jsonc` is backed up before the new MCP defaults are applied. Pass `--preserve-config` to leave it untouched.
+
 The first launch guides you through configuration automatically. Supported options:
 - **MiMo Auto (free for a limited time)** — anonymous channel, zero configuration
 - **Xiaomi MiMo Platform** — OAuth login

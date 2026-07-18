@@ -40,6 +40,19 @@ afterEach(async () => {
 })
 
 describe("installer packaging", () => {
+  test("Linux source installer repairs native dependencies before building", async () => {
+    const script = await Bun.file(path.resolve(import.meta.dir, "../../../..", "install-linux.sh")).text()
+
+    expect(script.indexOf("bun add --global node-gyp@12.3.0")).toBeLessThan(
+      script.indexOf("bun install --frozen-lockfile"),
+    )
+    expect(script).toContain('rm -rf -- "$REPOSITORY_DIR/node_modules"')
+    expect(script).toContain('rev-parse --show-toplevel')
+    expect(script).toContain("sha256sum -c -")
+    expect(script).toContain('backup="$config.backup-')
+    expect(script).not.toMatch(/(INTIGRITI_TOKEN|HACKERONE_API_TOKEN)="[^.]{8,}"/)
+  })
+
   test("packages a Windows binary with its offline installer", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mimocode-package-"))
     created.push(dir)
