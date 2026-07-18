@@ -62,6 +62,23 @@ describe("installer packaging", () => {
     ).toEqual([])
   })
 
+  test("bundles every real MCP runtime without external packages", async () => {
+    const { bundleMcpRuntimeEntries } = await import("../../script/package-installers")
+    const entries = await bundleMcpRuntimeEntries(path.resolve(import.meta.dir, "../../../pentestercode"))
+
+    expect(entries.map((entry) => path.basename(entry.name)).sort()).toEqual(
+      [
+        "bugcrowd-mcp.js",
+        "hackerone-mcp.js",
+        "intigriti-mcp.js",
+        "pentestercode-fusion.js",
+        "pentesterflow-burp.js",
+        "pentesterflow-core.js",
+      ].sort(),
+    )
+    expect(entries.every((entry) => entry.content.length > 1000)).toBe(true)
+  })
+
   test("Linux source installer reuses valid dependencies and repairs invalid dependencies before building", async () => {
     const script = await Bun.file(path.resolve(import.meta.dir, "../../../..", "install-linux.sh")).text()
 

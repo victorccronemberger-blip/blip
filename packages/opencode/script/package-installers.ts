@@ -94,7 +94,7 @@ function linuxArchive(entries: ArchiveEntry[]) {
   return gzipSync(archive, { level: 9 })
 }
 
-async function runtimeEntries(bundleDir: string) {
+export async function bundleMcpRuntimeEntries(bundleDir: string) {
   if (
     !(await Promise.all(MCP_RUNTIME_ENTRYPOINTS.map(([, file]) => Bun.file(path.join(bundleDir, file)).exists()))).every(
       Boolean,
@@ -139,7 +139,7 @@ async function bundleEntries(bundleDir?: string) {
       return !base.endsWith(".pem") && !base.endsWith(".key") && !base.includes("credentials")
     })
     .sort()
-  const runtime = await runtimeEntries(bundleDir)
+  const runtime = await bundleMcpRuntimeEntries(bundleDir)
   const entries = await Promise.all(
     files.map(async (file) => ({
       name: `${BUNDLE_PREFIX}/${file}`,
