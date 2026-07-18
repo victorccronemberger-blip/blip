@@ -1335,7 +1335,9 @@ const layer: Layer.Layer<
         // load config - re-apply with updated data
         for (const [id, provider] of configProviders) {
           const providerID = ProviderID.make(id)
-          const partial: Partial<Info> = { source: "config" }
+          // Plugin config hooks may add defaults even when the actual
+          // connection came from env or stored auth. Preserve that source.
+          const partial: Partial<Info> = providers[providerID] ? {} : { source: "config" }
           if (provider.env) partial.env = provider.env
           if (provider.name) partial.name = provider.name
           if (provider.options) partial.options = provider.options

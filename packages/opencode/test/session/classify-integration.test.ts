@@ -37,6 +37,7 @@ import {
   contentFilterResponse,
   otherFinishResponse,
 } from "../lib/scripted-llm-server"
+import { CONTENT_FILTER_MAX_RECOVERY } from "../../src/session/prompt/content-filter-recovery"
 
 void Log.init({ print: false })
 
@@ -188,7 +189,7 @@ describe("classifier routing — integration", () => {
     }
   })
 
-  test("content-filter (text format): writes ContentFilterError, no retry", async () => {
+  test("content-filter (text format): bounded recovery writes ContentFilterError", async () => {
     await using tmp = await tmpdir({ git: true })
     const stub = startScriptedLLMServer([{ lines: contentFilterResponse() }])
     try {
@@ -206,8 +207,9 @@ describe("classifier routing — integration", () => {
                 agent: "build",
                 parts: [{ type: "text", text: "Say something disallowed." }],
               })
-              // Terminal on first occurrence — exactly one LLM call, no retry.
-              expect(stub.captures.length).toBe(1)
+              // Recovery reformulates a bounded number of times, then exposes
+              // the provider filter as a terminal error.
+              expect(stub.captures.length).toBe(CONTENT_FILTER_MAX_RECOVERY + 1)
               expect(result.info.role).toBe("assistant")
               if (result.info.role === "assistant") {
                 expect(result.info.error?.name).toBe("ContentFilterError")
