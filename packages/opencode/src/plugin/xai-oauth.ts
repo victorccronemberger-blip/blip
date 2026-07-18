@@ -1,236 +1,268 @@
-/**
- * xAI / Grok auth plugin for MiMoCode.
- *
- * Methods:
- *  1) OAuth device-code (SuperGrok / X Premium+ style) against auth.x.ai
- *  2) Import existing tokens from ~/.codex/xai_oauth.json (Codex Grok setup)
- *  3) Paste XAI_API_KEY
- *
- * OAuth access tokens are used as Bearer apiKey against https://api.x.ai/v1.
- * Note: some SuperGrok accounts still get 403 on the API surface without
- * console credits — fall back to a console API key in that case.
- */
 import type { Hooks, PluginInput } from "@mimo-ai/plugin"
+import fs from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { setTimeout as sleep } from "node:timers/promises"
+import z from "zod"
 import { OAUTH_DUMMY_KEY } from "../auth"
-import os from "os"
-import path from "path"
-import fs from "fs/promises"
+import { copyHeaders, createLoopbackCallback, createOAuthState, createPkce, type OAuthFetch } from "./oauth"
 
 const CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828"
-const SCOPE = "openid profile email offline_access grok-cli:access api:access"
 const ISSUER = "https://auth.x.ai"
-const DISCOVERY = `${ISSUER}/.well-known/openid-configuration`
+const DISCOVERY_URL = `${ISSUER}/.well-known/openid-configuration`
 const API_BASE = "https://api.x.ai/v1"
-const UA = "mimocode-xai-oauth/1.0"
+const OAUTH_BASE = "https://cli-chat-proxy.grok.com/v1"
+const SCOPE = "openid profile email offline_access api:access"
+const USER_AGENT = "mimocode-xai-oauth/2.0"
 
-type Discovery = { token_endpoint: string; device_authorization_endpoint: string }
+const Discovery = z.object({
+  authorization_endpoint: z.string(),
+  token_endpoint: z.string(),
+  device_authorization_endpoint: z.string().optional(),
+})
+type Discovery = z.infer<typeof Discovery>
 
-async function discover(): Promise<Discovery> {
-  const res = await fetch(DISCOVERY, { headers: { "User-Agent": UA } })
-  if (!res.ok) throw new Error(`xAI discovery failed: HTTP ${res.status}`)
-  const doc = (await res.json()) as Record<string, unknown>
-  const token = doc.token_endpoint
-  const device = doc.device_authorization_endpoint
-  if (typeof token !== "string" || typeof device !== "string") {
-    throw new Error("xAI discovery missing endpoints")
-  }
-  return { token_endpoint: token, device_authorization_endpoint: device }
+const TokenResponse = z.object({
+  access_token: z.string().optional(),
+  refresh_token: z.string().optional(),
+  expires_in: z.number().optional(),
+  error: z.string().optional(),
+})
+type TokenResponse = z.infer<typeof TokenResponse>
+
+export type XaiOAuthAuth = {
+  type: "oauth"
+  access: string
+  refresh: string
+  expires: number
+  metadata?: Record<string, string>
+}
+const refreshes = new Map<string, Promise<XaiOAuthAuth>>()
+
+const GrokCredential = z.object({
+  key: z.string().optional(),
+  refresh_token: z.string().optional(),
+  expires_at: z.union([z.string(), z.number()]).optional(),
+  oidc_client_id: z.string().optional(),
+})
+
+export async function discoverXai(fetcher: OAuthFetch = fetch): Promise<Discovery> {
+  const response = await fetcher(DISCOVERY_URL, { headers: { "User-Agent": USER_AGENT } })
+  if (!response.ok) throw new Error(`xAI OAuth discovery failed (HTTP ${response.status})`)
+  return Discovery.parse(await response.json())
 }
 
-async function readCodexStore(): Promise<{
-  access_token?: string
-  refresh_token?: string
-  expires_at?: number
-  client_id?: string
-} | null> {
-  const p = path.join(os.homedir(), ".codex", "xai_oauth.json")
-  try {
-    const raw = await fs.readFile(p, "utf8")
-    return JSON.parse(raw) as {
-      access_token?: string
-      refresh_token?: string
-      expires_at?: number
-      client_id?: string
-    }
-  } catch {
-    return null
+const expiresAt = (value?: string | number) => {
+  if (typeof value === "string") return Date.parse(value)
+  if (typeof value !== "number") return Date.now() + 60 * 60 * 1000
+  return value > 1e12 ? value : value * 1000
+}
+
+export async function readGrokCredentials(file = path.join(os.homedir(), ".grok", "auth.json")) {
+  const document = z.record(z.string(), GrokCredential).parse(JSON.parse(await fs.readFile(file, "utf8")))
+  const credential = Object.values(document).find(
+    (item) => item.key && (!item.oidc_client_id || item.oidc_client_id === CLIENT_ID),
+  )
+  if (!credential?.key) return undefined
+  return {
+    access: credential.key,
+    refresh: credential.refresh_token ?? "",
+    expires: expiresAt(credential.expires_at),
   }
 }
 
-async function refreshIfNeeded(auth: {
-  type: string
-  access?: string
-  refresh?: string
-  expires?: number
-}): Promise<{ access: string; refresh?: string; expires?: number } | null> {
-  if (auth.type !== "oauth" || !auth.access) return null
-  const skew = 120_000
-  if (auth.expires && Date.now() < auth.expires - skew) {
-    return { access: auth.access, refresh: auth.refresh, expires: auth.expires }
+async function tokenRequest(endpoint: string, body: URLSearchParams, fetcher: OAuthFetch = fetch) {
+  const response = await fetcher(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": USER_AGENT,
+    },
+    body,
+  })
+  const tokens = TokenResponse.parse(await response.json())
+  if (!response.ok || !tokens.access_token) {
+    throw new Error(`xAI OAuth token request failed: ${tokens.error ?? `HTTP ${response.status}`}`)
   }
-  if (!auth.refresh) return { access: auth.access, refresh: auth.refresh, expires: auth.expires }
-  try {
-    const { token_endpoint } = await discover()
-    const body = new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: auth.refresh,
-      client_id: CLIENT_ID,
-    })
-    const res = await fetch(token_endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA },
-      body,
-    })
-    if (!res.ok) return { access: auth.access, refresh: auth.refresh, expires: auth.expires }
-    const tokens = (await res.json()) as {
-      access_token?: string
-      refresh_token?: string
-      expires_in?: number
-    }
-    if (!tokens.access_token) return { access: auth.access, refresh: auth.refresh, expires: auth.expires }
+  return tokens
+}
+
+export async function refreshXaiOAuth(auth: XaiOAuthAuth, fetcher: OAuthFetch = fetch) {
+  if (auth.expires > Date.now() + 120_000) return auth
+  if (!auth.refresh) throw new Error("The Grok OAuth session expired and has no refresh token")
+  const pending = refreshes.get(auth.refresh)
+  if (pending) return pending
+  const task = (async () => {
+    const tokens = await tokenRequest(
+      (await discoverXai(fetcher)).token_endpoint,
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: auth.refresh,
+        client_id: CLIENT_ID,
+      }),
+      fetcher,
+    )
     return {
-      access: tokens.access_token,
+      ...auth,
+      access: tokens.access_token!,
       refresh: tokens.refresh_token ?? auth.refresh,
       expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
     }
-  } catch {
-    return { access: auth.access, refresh: auth.refresh, expires: auth.expires }
-  }
+  })()
+  refreshes.set(auth.refresh, task)
+  return task.finally(() => refreshes.delete(auth.refresh))
 }
 
-export async function XaiOAuthPlugin(_input: PluginInput): Promise<Hooks> {
+const success = (tokens: TokenResponse) => ({
+  type: "success" as const,
+  access: tokens.access_token!,
+  refresh: tokens.refresh_token ?? "",
+  expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
+  metadata: { source: "xai-oauth", oauthBaseURL: OAUTH_BASE },
+})
+
+export async function XaiOAuthPlugin(input: PluginInput): Promise<Hooks> {
   return {
-    config: async (cfg) => {
-      cfg.provider ??= {}
-      cfg.provider.xai ??= {
-        name: "xAI (Grok)",
-        npm: "@ai-sdk/xai",
-        options: { baseURL: API_BASE },
-        models: {
-          "grok-4": { name: "Grok 4" },
-          "grok-4.5": { name: "Grok 4.5" },
-          "grok-3": { name: "Grok 3" },
-          "grok-3-mini": { name: "Grok 3 Mini" },
-          "grok-2": { name: "Grok 2" },
-        },
-      }
+    config: async (config) => {
+      config.provider ??= {}
+      config.provider.xai ??= {}
+      config.provider.xai.name ??= "xAI (Grok)"
+      config.provider.xai.npm ??= "@ai-sdk/xai"
+      config.provider.xai.options ??= { baseURL: API_BASE }
+      config.provider.xai.models ??= {}
+      config.provider.xai.models["grok-build"] ??= { name: "Grok Build (OAuth)" }
     },
     auth: {
       provider: "xai",
-      async loader(getAuth) {
-        const auth = (await getAuth()) as {
-          type: string
-          key?: string
-          access?: string
-          refresh?: string
-          expires?: number
-        }
-        if (!auth) return {}
+      async loader(getAuth, provider) {
+        const auth = await getAuth()
+        if (auth.type === "api") return { apiKey: auth.key, baseURL: API_BASE }
+        if (auth.type !== "oauth") return {}
 
-        if (auth.type === "api" && auth.key) {
-          return { apiKey: auth.key, baseURL: API_BASE }
+        for (const [modelID, model] of Object.entries(provider.models)) {
+          if (modelID !== "grok-build") delete provider.models[modelID]
+          model.cost = { input: 0, output: 0, cache: { read: 0, write: 0 } }
         }
 
-        if (auth.type === "oauth") {
-          const refreshed = await refreshIfNeeded(auth)
-          const token = refreshed?.access ?? auth.access
-          if (!token) return {}
-          return {
-            apiKey: token,
-            baseURL: API_BASE,
-            async fetch(requestInput: RequestInfo | URL, init?: RequestInit) {
-              const headers = new Headers()
-              if (init?.headers) {
-                if (init.headers instanceof Headers) {
-                  init.headers.forEach((v, k) => headers.set(k, v))
-                } else if (Array.isArray(init.headers)) {
-                  for (const [k, v] of init.headers) if (v !== undefined) headers.set(k, String(v))
-                } else {
-                  for (const [k, v] of Object.entries(init.headers)) {
-                    if (v !== undefined) headers.set(k, String(v))
-                  }
-                }
-              }
-              // Strip dummy / wrong schemes and force Bearer OAuth token.
-              headers.delete("authorization")
-              headers.delete("x-api-key")
-              headers.set("authorization", `Bearer ${token}`)
-              return fetch(requestInput, { ...init, headers })
-            },
-          }
+        return {
+          apiKey: OAUTH_DUMMY_KEY,
+          baseURL: OAUTH_BASE,
+          async fetch(requestInput: RequestInfo | URL, init?: RequestInit) {
+            const current = await getAuth()
+            if (current.type !== "oauth") throw new Error("Grok OAuth credentials were removed")
+            const updated = await refreshXaiOAuth(current as XaiOAuthAuth)
+            if (updated.access !== current.access || updated.refresh !== current.refresh) {
+              await input.client.auth.set({
+                path: { id: "xai" },
+                body: updated,
+              })
+            }
+            const headers = copyHeaders(init?.headers)
+            headers.delete("authorization")
+            headers.delete("x-api-key")
+            headers.set("authorization", `Bearer ${updated.access}`)
+            headers.set("X-XAI-Token-Auth", "xai-grok-cli")
+            headers.set("x-grok-model-override", "grok-build")
+            return fetch(requestInput, { ...init, headers })
+          },
         }
-
-        return {}
       },
       methods: [
         {
-          label: "xAI OAuth (device code / SuperGrok)",
-          type: "oauth" as const,
+          label: "Grok OAuth (browser)",
+          type: "oauth",
           authorize: async () => {
-            const { token_endpoint, device_authorization_endpoint } = await discover()
-            const deviceRes = await fetch(device_authorization_endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA },
-              body: new URLSearchParams({
-                client_id: CLIENT_ID,
-                scope: SCOPE,
-              }),
-            })
-            if (!deviceRes.ok) {
-              throw new Error(`xAI device auth failed: HTTP ${deviceRes.status}`)
-            }
-            const device = (await deviceRes.json()) as {
-              device_code: string
-              user_code: string
-              verification_uri?: string
-              verification_uri_complete?: string
-              interval?: number
-              expires_in?: number
-            }
-            const verifyUrl =
-              device.verification_uri_complete ||
-              device.verification_uri ||
-              "https://auth.x.ai/device"
-            const intervalMs = Math.max((device.interval ?? 5) * 1000, 1000)
-
+            const discovery = await discoverXai()
+            const pkce = await createPkce()
+            const state = createOAuthState()
+            const callback = await createLoopbackCallback()
+            const url = new URL(discovery.authorization_endpoint)
+            url.search = new URLSearchParams({
+              response_type: "code",
+              client_id: CLIENT_ID,
+              redirect_uri: callback.redirectUri,
+              scope: SCOPE,
+              code_challenge: pkce.challenge,
+              code_challenge_method: "S256",
+              state,
+            }).toString()
             return {
-              url: verifyUrl,
+              url: url.toString(),
               method: "auto" as const,
-              instructions: `Open the URL and enter code: ${device.user_code}`,
+              instructions: "Complete the Grok authorization in your browser.",
+              callback: async () => {
+                try {
+                  const result = await callback.wait
+                  if (result.state !== state) throw new Error("xAI OAuth state mismatch")
+                  return success(
+                    await tokenRequest(
+                      discovery.token_endpoint,
+                      new URLSearchParams({
+                        grant_type: "authorization_code",
+                        code: result.code,
+                        redirect_uri: callback.redirectUri,
+                        client_id: CLIENT_ID,
+                        code_verifier: pkce.verifier,
+                      }),
+                    ),
+                  )
+                } catch {
+                  return { type: "failed" as const }
+                } finally {
+                  await callback.close()
+                }
+              },
+            }
+          },
+        },
+        {
+          label: "Grok OAuth (device/headless)",
+          type: "oauth",
+          authorize: async () => {
+            const discovery = await discoverXai()
+            if (!discovery.device_authorization_endpoint) {
+              throw new Error("xAI does not advertise device authorization")
+            }
+            const response = await fetch(discovery.device_authorization_endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": USER_AGENT },
+              body: new URLSearchParams({ client_id: CLIENT_ID, scope: SCOPE }),
+            })
+            const device = z
+              .object({
+                device_code: z.string().optional(),
+                user_code: z.string().optional(),
+                verification_uri: z.string().optional(),
+                verification_uri_complete: z.string().optional(),
+                interval: z.number().optional(),
+                expires_in: z.number().optional(),
+              })
+              .parse(await response.json())
+            if (!response.ok || !device.device_code || !device.user_code) {
+              throw new Error(`xAI device authorization failed (HTTP ${response.status})`)
+            }
+            return {
+              url: device.verification_uri_complete ?? device.verification_uri ?? `${ISSUER}/device`,
+              method: "auto" as const,
+              instructions: `Enter this Grok device code: ${device.user_code}`,
               callback: async () => {
                 const deadline = Date.now() + (device.expires_in ?? 900) * 1000
+                const interval = Math.max(device.interval ?? 5, 1) * 1000
                 while (Date.now() < deadline) {
-                  await new Promise((r) => setTimeout(r, intervalMs))
-                  const tokenRes = await fetch(token_endpoint, {
+                  await sleep(interval)
+                  const response = await fetch(discovery.token_endpoint, {
                     method: "POST",
-                    headers: {
-                      "Content-Type": "application/x-www-form-urlencoded",
-                      "User-Agent": UA,
-                    },
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": USER_AGENT },
                     body: new URLSearchParams({
                       grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-                      device_code: device.device_code,
+                      device_code: device.device_code!,
                       client_id: CLIENT_ID,
                     }),
                   })
-                  const tokens = (await tokenRes.json()) as {
-                    access_token?: string
-                    refresh_token?: string
-                    expires_in?: number
-                    error?: string
-                  }
-                  if (tokens.error === "authorization_pending" || tokens.error === "slow_down") {
-                    continue
-                  }
-                  if (!tokenRes.ok || !tokens.access_token) {
-                    return { type: "failed" as const }
-                  }
-                  return {
-                    type: "success" as const,
-                    access: tokens.access_token,
-                    refresh: tokens.refresh_token ?? "",
-                    expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
-                  }
+                  const tokens = TokenResponse.parse(await response.json())
+                  if (tokens.error === "authorization_pending" || tokens.error === "slow_down") continue
+                  if (response.ok && tokens.access_token) return success(tokens)
+                  return { type: "failed" as const }
                 }
                 return { type: "failed" as const }
               },
@@ -238,35 +270,30 @@ export async function XaiOAuthPlugin(_input: PluginInput): Promise<Hooks> {
           },
         },
         {
-          label: "Import from Codex (~/.codex/xai_oauth.json)",
-          type: "oauth" as const,
-          authorize: async () => {
-            return {
-              url: "",
-              method: "auto" as const,
-              instructions: "Importing tokens from ~/.codex/xai_oauth.json …",
-              callback: async () => {
-                const store = await readCodexStore()
-                if (!store?.access_token) return { type: "failed" as const }
-                const expires =
-                  typeof store.expires_at === "number" && store.expires_at > 1e12
-                    ? store.expires_at
-                    : typeof store.expires_at === "number"
-                      ? store.expires_at * 1000
-                      : Date.now() + 3600_000
+          label: "Import official Grok CLI login (~/.grok/auth.json)",
+          type: "oauth",
+          authorize: async () => ({
+            url: "",
+            method: "auto" as const,
+            instructions: "Importing the official Grok CLI OAuth session.",
+            callback: async () => {
+              try {
+                const credential = await readGrokCredentials()
+                if (!credential) return { type: "failed" as const }
                 return {
                   type: "success" as const,
-                  access: store.access_token,
-                  refresh: store.refresh_token ?? "",
-                  expires,
+                  ...credential,
+                  metadata: { source: "grok-cli", oauthBaseURL: OAUTH_BASE },
                 }
-              },
-            }
-          },
+              } catch {
+                return { type: "failed" as const }
+              }
+            },
+          }),
         },
         {
           label: "xAI API key (console.x.ai)",
-          type: "api" as const,
+          type: "api",
           authorize: async () => ({ type: "success" as const, key: "" }),
         },
       ],

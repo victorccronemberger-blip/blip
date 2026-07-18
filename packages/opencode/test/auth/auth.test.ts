@@ -83,4 +83,25 @@ describe("Auth", () => {
       }),
     ),
   )
+
+  it.live("preserves provider metadata for OAuth refresh", () =>
+    provideTmpdirInstance(() =>
+      Effect.gen(function* () {
+        const auth = yield* Auth.Service
+        yield* auth.set("google", {
+          type: "oauth",
+          access: "access",
+          refresh: "refresh",
+          expires: Date.now() + 3600_000,
+          metadata: {
+            clientId: "desktop-client",
+            projectId: "quota-project",
+          },
+        })
+        const entry = yield* auth.get("google")
+        expect(entry?.type).toBe("oauth")
+        if (entry?.type === "oauth") expect(entry.metadata?.projectId).toBe("quota-project")
+      }),
+    ),
+  )
 })

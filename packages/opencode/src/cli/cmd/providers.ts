@@ -105,7 +105,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string, 
       if (result.type === "success") {
         const saveProvider = result.provider ?? provider
         if ("refresh" in result) {
-          const { type: _, provider: __, refresh, access, expires, metadata: _m, ...extraFields } = result
+          const { type: _, provider: __, refresh, access, expires, ...extraFields } = result
           await put(saveProvider, {
             type: "oauth",
             refresh,
@@ -138,7 +138,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string, 
       if (result.type === "success") {
         const saveProvider = result.provider ?? provider
         if ("refresh" in result) {
-          const { type: _, provider: __, refresh, access, expires, metadata: _m, ...extraFields } = result
+          const { type: _, provider: __, refresh, access, expires, ...extraFields } = result
           await put(saveProvider, {
             type: "oauth",
             refresh,

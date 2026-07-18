@@ -59,8 +59,24 @@ An existing `~/.mimocode/mimocode.jsonc` is backed up before the new MCP default
 The first launch guides you through configuration automatically. Supported options:
 - **MiMo Auto (free for a limited time)** — anonymous channel, zero configuration
 - **Xiaomi MiMo Platform** — OAuth login
-- **Import from Claude Code** — migrate existing authentication in one step
+- **Claude Pro/Max** — browser OAuth or import an official Claude Code login
+- **Grok** — browser OAuth, device-code login, or import an official Grok CLI login
+- **Gemini** — Google Desktop OAuth or Application Default Credentials
 - **Custom Provider** — add any OpenAI-compatible API in the TUI
+
+### Provider OAuth
+
+Run `/connect` in the TUI and choose the provider. Grok and Claude use PKCE, automatically refresh expiring access tokens, and can import the official CLI credential stores at `~/.grok/auth.json` and `~/.claude/.credentials.json` respectively.
+
+Gemini uses Google's public OAuth flow for third-party desktop applications. Create a **Desktop app** OAuth client in Google Cloud, enable the Generative Language API, add your account as a test user, and select the downloaded `client_secret.json` when prompted. MiMoCode also supports credentials created with:
+
+```bash
+gcloud auth application-default login \
+  --client-id-file=client_secret.json \
+  --scopes='https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/generative-language.retriever'
+```
+
+OAuth access/refresh tokens and the metadata needed to renew them are stored in MiMoCode's `auth.json` with owner-only permissions. They are never written to the repository.
 
 <details>
 <summary><strong>WSL: clipboard issues</strong></summary>
