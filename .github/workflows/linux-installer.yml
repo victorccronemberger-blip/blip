@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           archive="packages/opencode/dist/mimocode-linux-x64.tar.gz"
           test -s "$archive"
-          sha256sum -c packages/opencode/dist/SHA256SUMS-linux.txt --ignore-missing
+          (cd packages/opencode/dist && sha256sum -c SHA256SUMS-linux.txt --ignore-missing)
           extract_dir="$(mktemp -d)"
           trap 'rm -rf -- "$extract_dir"' EXIT
           tar -xzf "$archive" -C "$extract_dir"
