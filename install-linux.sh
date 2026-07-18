@@ -234,7 +234,7 @@ info "Installing MiMoCode and seeding PentesterCode"
 
 if [[ -n "$backup" ]]; then
   info "Applying the new portable MCP defaults"
-  bun "$REPOSITORY_DIR/packages/pentestercode/script/seed-home.ts" --force
+  bun "$dist/packages/pentestercode/script/seed-home.ts" --force
 fi
 
 for platform in bugcrowd intigriti hackerone; do

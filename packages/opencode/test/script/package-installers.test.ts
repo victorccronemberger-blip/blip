@@ -79,6 +79,8 @@ describe("installer packaging", () => {
     expect(script).toContain('LOCAL_CHANGES_STASH="$(git -C "$REPOSITORY_DIR" rev-parse refs/stash)"')
     expect(script).toContain("Verified Bugcrowd, Intigriti and HackerOne MCP installation")
     expect(script).toContain('$HOME/.mimocode/runtime/$platform-mcp.js')
+    expect(script).toContain('bun "$dist/packages/pentestercode/script/seed-home.ts" --force')
+    expect(script).not.toContain('bun "$REPOSITORY_DIR/packages/pentestercode/script/seed-home.ts" --force')
     expect(script).toContain("sha256sum -c -")
     expect(script).toContain('backup="$config.backup-')
     expect(script).not.toMatch(/(INTIGRITI_TOKEN|HACKERONE_API_TOKEN)="[^.]{8,}"/)
