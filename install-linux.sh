@@ -6,6 +6,8 @@ BRANCH="${MIMOCODE_BRANCH:-agent/platform-mcps}"
 REPOSITORY_DIR="${MIMOCODE_SOURCE_DIR:-$HOME/blip}"
 PRESERVE_CONFIG=false
 INSTALL_SYSTEM_PACKAGES=true
+STASH_LOCAL_CHANGES=false
+LOCAL_CHANGES_STASH=""
 
 info() {
   printf '\n\033[1;34m==>\033[0m %s\n' "$*"
@@ -27,6 +29,7 @@ Options:
   --repo-dir <path>        Source checkout (default: ~/blip)
   --preserve-config        Do not replace an existing ~/.mimocode/mimocode.jsonc
   --skip-system-packages   Do not invoke apt/dnf/pacman/apk
+  --stash-local-changes    Preserve checkout changes in a recoverable Git stash
   -h, --help               Show this help
 
 Environment alternatives:
@@ -52,6 +55,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-system-packages)
       INSTALL_SYSTEM_PACKAGES=false
+      shift
+      ;;
+    --stash-local-changes)
+      STASH_LOCAL_CHANGES=true
       shift
       ;;
     -h|--help)
@@ -132,10 +139,20 @@ if [[ ! -e "$REPOSITORY_DIR" ]]; then
 elif [[ ! -d "$REPOSITORY_DIR/.git" ]]; then
   die "$REPOSITORY_DIR exists but is not a Git checkout"
 else
-  [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] ||
-    die "$REPOSITORY_DIR has local changes; commit or move them before installing"
   [[ "$(git -C "$REPOSITORY_DIR" remote get-url origin)" == "$REPOSITORY_URL" ]] ||
     die "$REPOSITORY_DIR points to a different Git repository; set MIMOCODE_REPOSITORY_URL if intentional"
+  checkout_status="$(git -C "$REPOSITORY_DIR" status --porcelain)"
+  if [[ -n "$checkout_status" ]]; then
+    if [[ "$STASH_LOCAL_CHANGES" == false ]]; then
+      printf '%s\n' "$checkout_status" >&2
+      die "$REPOSITORY_DIR has local changes; rerun with --stash-local-changes to preserve them safely"
+    fi
+    info "Preserving local checkout changes in Git stash"
+    git -C "$REPOSITORY_DIR" stash push --include-untracked \
+      --message "mimocode installer backup $(date +%Y%m%d-%H%M%S)" >/dev/null
+    LOCAL_CHANGES_STASH="$(git -C "$REPOSITORY_DIR" rev-parse refs/stash)"
+    info "Local changes preserved as $LOCAL_CHANGES_STASH"
+  fi
   info "Updating $REPOSITORY_DIR to origin/$BRANCH"
   git -C "$REPOSITORY_DIR" fetch origin "$BRANCH"
   git -C "$REPOSITORY_DIR" switch "$BRANCH"
@@ -241,3 +258,8 @@ Source checkout: $REPOSITORY_DIR
 Installer archive: $archive
 ${backup:+Previous config backup: $backup}
 EOF
+
+if [[ -n "$LOCAL_CHANGES_STASH" ]]; then
+  printf 'Local checkout changes remain safe in Git stash %s.\n' "$LOCAL_CHANGES_STASH"
+  printf 'Inspect them later with: git -C %q stash show --stat %s\n' "$REPOSITORY_DIR" "$LOCAL_CHANGES_STASH"
+fi
