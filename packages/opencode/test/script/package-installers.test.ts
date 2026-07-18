@@ -46,6 +46,22 @@ afterEach(async () => {
 })
 
 describe("installer packaging", () => {
+  test("tracks every source required by the native build and bundled MCP runtimes", async () => {
+    const root = path.resolve(import.meta.dir, "../../../..")
+    if (!(await Bun.file(path.join(root, ".git", "HEAD")).exists())) return
+    const required = [
+      "packages/opencode/script/build-environment.ts",
+      "packages/opencode/script/build-node.ts",
+      "packages/pentestercode/vendor/pentesterflow/src/target/target.ts",
+    ]
+
+    expect(
+      required.filter(
+        (file) => Bun.spawnSync(["git", "ls-files", "--error-unmatch", file], { cwd: root }).exitCode !== 0,
+      ),
+    ).toEqual([])
+  })
+
   test("Linux source installer reuses valid dependencies and repairs invalid dependencies before building", async () => {
     const script = await Bun.file(path.resolve(import.meta.dir, "../../../..", "install-linux.sh")).text()
 

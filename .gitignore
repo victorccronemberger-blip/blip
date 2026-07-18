@@ -23,6 +23,8 @@ Session.vim
 /opencode.json
 a.out
 target
+!packages/pentestercode/vendor/pentesterflow/src/target/
+!packages/pentestercode/vendor/pentesterflow/src/target/**
 .scripts
 .direnv/
 
