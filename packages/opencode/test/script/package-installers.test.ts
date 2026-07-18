@@ -9,9 +9,15 @@ const created: string[] = []
 async function createPentesterCodeBundle(dir: string) {
   const root = path.join(dir, "packages", "pentestercode")
   const files = {
-    "mimocode.defaults.jsonc": "{\"default_agent\":\"pentester\"}",
+    "mimocode.defaults.jsonc":
+      '{"default_agent":"pentester","mcp":{"bugcrowd":{"command":["bun","__MIMOCODE_HOME__/vendor/pentesterflow/bugcrowd-mcp.ts"]}}}',
     "fusion/fusion-mcp.ts": "console.log('fusion')",
     "vendor/pentdem/requirements.txt": "httpx\n",
+    "vendor/pentesterflow/bugcrowd-mcp.ts": "console.log('bugcrowd')",
+    "vendor/pentesterflow/intigriti-mcp.ts": "console.log('intigriti')",
+    "vendor/pentesterflow/hackerone-mcp.ts": "console.log('hackerone')",
+    "vendor/pentesterflow/pentestercode-mcp.ts": "console.log('core')",
+    "vendor/pentesterflow/src/browser/mcpServer.ts": "console.log('burp')",
     "vendor/pentesterflow/src/this/is/a/deliberately/long/runtime/path/that/exceeds/the/classic/tar/name/limit/mcp.ts":
       "console.log('pentesterflow')",
     "script/seed-home.ts": "console.log('seed')",
@@ -55,6 +61,8 @@ describe("installer packaging", () => {
     expect(script).toContain("--stash-local-changes")
     expect(script).toContain("stash push --include-untracked")
     expect(script).toContain('LOCAL_CHANGES_STASH="$(git -C "$REPOSITORY_DIR" rev-parse refs/stash)"')
+    expect(script).toContain("Verified Bugcrowd, Intigriti and HackerOne MCP installation")
+    expect(script).toContain('$HOME/.mimocode/runtime/$platform-mcp.js')
     expect(script).toContain("sha256sum -c -")
     expect(script).toContain('backup="$config.backup-')
     expect(script).not.toMatch(/(INTIGRITI_TOKEN|HACKERONE_API_TOKEN)="[^.]{8,}"/)
@@ -85,6 +93,10 @@ describe("installer packaging", () => {
     expect(path.basename(output)).toBe("mimocode-windows-x64.zip")
     expect(entries.map((entry) => entry.filename)).toContain("packages/pentestercode/fusion/fusion-mcp.ts")
     expect(entries.map((entry) => entry.filename)).toContain("packages/pentestercode/vendor/pentdem/requirements.txt")
+    expect(entries.map((entry) => entry.filename)).toContain(
+      "packages/pentestercode/vendor/pentesterflow/bugcrowd-mcp.ts",
+    )
+    expect(entries.map((entry) => entry.filename)).toContain("packages/pentestercode/runtime/bugcrowd-mcp.js")
     expect(entries.map((entry) => entry.filename)).toContain("README-PENTESTERCODE.md")
     expect(entries.map((entry) => entry.filename)).not.toContain("packages/pentestercode/.env")
     expect(entries.map((entry) => entry.filename).some((entry) => entry.includes("node_modules"))).toBe(false)
@@ -124,6 +136,15 @@ describe("installer packaging", () => {
     expect(path.basename(output)).toBe("mimocode-linux-x64.tar.gz")
     expect(entries.map((entry) => entry.name)).toContain("packages/pentestercode/fusion/fusion-mcp.ts")
     expect(entries.map((entry) => entry.name)).toContain("packages/pentestercode/vendor/pentdem/requirements.txt")
+    expect(entries.map((entry) => entry.name)).toContain(
+      "packages/pentestercode/vendor/pentesterflow/bugcrowd-mcp.ts",
+    )
+    expect(entries.map((entry) => entry.name)).toContain("packages/pentestercode/runtime/bugcrowd-mcp.js")
+    const config = await new Response(
+      Bun.spawn(["tar", "-xOzf", output, "packages/pentestercode/mimocode.defaults.jsonc"]).stdout,
+    ).text()
+    expect(config).toContain("runtime/bugcrowd-mcp.js")
+    expect(config).not.toContain("vendor/pentesterflow/bugcrowd-mcp.ts")
     expect(entries.map((entry) => entry.name).some((entry) => entry.length > 100)).toBe(true)
     expect(entries.map((entry) => entry.name)).toContain("README-PENTESTERCODE.md")
     expect(entries.map((entry) => entry.name)).not.toContain("packages/pentestercode/.env")

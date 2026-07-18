@@ -18,6 +18,14 @@ const EXCLUDED_SEGMENTS = new Set([
   "tests",
 ])
 const EXCLUDED_DOCS = new Set(["PROMPT-PACKAGER-AI.md", "INSTALLER.md", "docs/HANDOFF-REBUILD-OPEN-HARNESS.md"])
+const MCP_RUNTIME_ENTRYPOINTS = [
+  ["pentesterflow-core.js", "vendor/pentesterflow/pentestercode-mcp.ts"],
+  ["pentesterflow-burp.js", "vendor/pentesterflow/src/browser/mcpServer.ts"],
+  ["bugcrowd-mcp.js", "vendor/pentesterflow/bugcrowd-mcp.ts"],
+  ["intigriti-mcp.js", "vendor/pentesterflow/intigriti-mcp.ts"],
+  ["hackerone-mcp.js", "vendor/pentesterflow/hackerone-mcp.ts"],
+  ["pentestercode-fusion.js", "fusion/fusion-mcp.ts"],
+] as const
 
 type ArchiveEntry = {
   name: string
@@ -86,6 +94,34 @@ function linuxArchive(entries: ArchiveEntry[]) {
   return gzipSync(archive, { level: 9 })
 }
 
+async function runtimeEntries(bundleDir: string) {
+  if (
+    !(await Promise.all(MCP_RUNTIME_ENTRYPOINTS.map(([, file]) => Bun.file(path.join(bundleDir, file)).exists()))).every(
+      Boolean,
+    )
+  ) {
+    return []
+  }
+  return Promise.all(
+    MCP_RUNTIME_ENTRYPOINTS.map(async ([name, file]) => {
+      const result = await Bun.build({
+        entrypoints: [path.join(bundleDir, file)],
+        target: "bun",
+        format: "esm",
+        minify: true,
+      })
+      if (!result.success || !result.outputs[0]) {
+        throw new Error(`Failed to bundle ${file}: ${result.logs.map((log) => log.message).join("; ")}`)
+      }
+      return {
+        name: `${BUNDLE_PREFIX}/runtime/${name}`,
+        content: new Uint8Array(await result.outputs[0].arrayBuffer()),
+        mode: 0o644,
+      }
+    }),
+  )
+}
+
 async function bundleEntries(bundleDir?: string) {
   if (!bundleDir || !(await Bun.file(path.join(bundleDir, "mimocode.defaults.jsonc")).exists())) return []
   const files = (await Array.fromAsync(new Bun.Glob("**/*").scan({ cwd: bundleDir, dot: true, onlyFiles: true })))
@@ -103,23 +139,35 @@ async function bundleEntries(bundleDir?: string) {
       return !base.endsWith(".pem") && !base.endsWith(".key") && !base.includes("credentials")
     })
     .sort()
+  const runtime = await runtimeEntries(bundleDir)
   const entries = await Promise.all(
     files.map(async (file) => ({
       name: `${BUNDLE_PREFIX}/${file}`,
-      content: await Bun.file(path.join(bundleDir, file)).bytes(),
+      content:
+        file === "mimocode.defaults.jsonc" && runtime.length > 0
+          ? new TextEncoder().encode(
+              (await Bun.file(path.join(bundleDir, file)).text())
+                .replace("vendor/pentesterflow/pentestercode-mcp.ts", "runtime/pentesterflow-core.js")
+                .replace("vendor/pentesterflow/src/browser/mcpServer.ts", "runtime/pentesterflow-burp.js")
+                .replace("vendor/pentesterflow/bugcrowd-mcp.ts", "runtime/bugcrowd-mcp.js")
+                .replace("vendor/pentesterflow/intigriti-mcp.ts", "runtime/intigriti-mcp.js")
+                .replace("vendor/pentesterflow/hackerone-mcp.ts", "runtime/hackerone-mcp.js")
+                .replace("fusion/fusion-mcp.ts", "runtime/pentestercode-fusion.js"),
+            )
+          : await Bun.file(path.join(bundleDir, file)).bytes(),
       mode: file.endsWith(".sh") || file === "script/seed-home.ts" ? 0o755 : 0o644,
     })),
   )
   const personal = new TextEncoder().encode("C:\\Users\\victo")
   if (
-    entries.some((entry) =>
+    [...entries, ...runtime].some((entry) =>
       entry.content.some((_, index) => personal.every((byte, offset) => entry.content[index + offset] === byte)),
     )
   ) {
     throw new Error("PentesterCode bundle contains a developer-specific home path")
   }
   const guide = entries.find((entry) => entry.name === `${BUNDLE_PREFIX}/POST-INSTALL.md`)
-  return guide ? [...entries, { ...guide, name: "README-PENTESTERCODE.md" }] : entries
+  return guide ? [...entries, ...runtime, { ...guide, name: "README-PENTESTERCODE.md" }] : [...entries, ...runtime]
 }
 
 export async function packageTarget(input: {

@@ -237,6 +237,15 @@ if [[ -n "$backup" ]]; then
   bun "$REPOSITORY_DIR/packages/pentestercode/script/seed-home.ts" --force
 fi
 
+for platform in bugcrowd intigriti hackerone; do
+  [[ -f "$HOME/.mimocode/runtime/$platform-mcp.js" ]] ||
+    die "platform MCP runtime was not installed: $platform"
+  if [[ "$PRESERVE_CONFIG" == false ]]; then
+    grep -q "\"$platform\"" "$config" || die "platform MCP was not registered: $platform"
+  fi
+done
+info "Verified Bugcrowd, Intigriti and HackerOne MCP installation"
+
 export PATH="$HOME/.mimocode/bin:$PATH"
 info "Installation complete"
 "$HOME/.mimocode/bin/mimo" --version
@@ -247,6 +256,7 @@ Open a new terminal, or run:
   export PATH="\$HOME/.mimocode/bin:\$PATH"
 
 Platform MCP credentials are intentionally not stored by this installer:
+  export BUGCROWD_API_TOKEN="..."
   export INTIGRITI_TOKEN="..."
   export HACKERONE_API_USERNAME="..."
   export HACKERONE_API_TOKEN="..."
