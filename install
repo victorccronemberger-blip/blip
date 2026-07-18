@@ -66,8 +66,31 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-INSTALL_DIR=$HOME/.mimocode/bin
+INSTALL_DIR=${MIMOCODE_INSTALL_DIR:-$HOME/.mimocode/bin}
 mkdir -p "$INSTALL_DIR"
+
+install_binary() {
+    local source="$1"
+    local destination="${INSTALL_DIR}/mimo"
+    local temporary
+    temporary=$(mktemp "${INSTALL_DIR}/.mimo.install.XXXXXX")
+
+    cp "$source" "$temporary" || {
+        local status=$?
+        rm -f "$temporary"
+        return "$status"
+    }
+    chmod 755 "$temporary" || {
+        local status=$?
+        rm -f "$temporary"
+        return "$status"
+    }
+    mv -f "$temporary" "$destination" || {
+        local status=$?
+        rm -f "$temporary"
+        return "$status"
+    }
+}
 
 install_pentestercode() {
     local bundle_root="$1"
@@ -378,16 +401,14 @@ download_and_install() {
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
 
-    mv "$tmp_dir/mimo" "$INSTALL_DIR"
-    chmod 755 "${INSTALL_DIR}/mimo"
+    install_binary "$tmp_dir/mimo"
     install_pentestercode "$tmp_dir/packages/pentestercode"
     rm -rf "$tmp_dir"
 }
 
 install_from_binary() {
     print_message info "\n${MUTED}Installing ${NC}mimocode ${MUTED}from: ${NC}$binary_path"
-    cp "$binary_path" "${INSTALL_DIR}/mimo"
-    chmod 755 "${INSTALL_DIR}/mimo"
+    install_binary "$binary_path"
     install_pentestercode "${MIMOCODE_BUNDLE_DIR:-$INSTALLER_DIR/packages/pentestercode}"
 }
 

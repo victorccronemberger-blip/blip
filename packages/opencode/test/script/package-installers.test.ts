@@ -213,6 +213,42 @@ describe("installer packaging", () => {
     )
   })
 
+  test("Linux offline installer atomically replaces a running binary", async () => {
+    if (process.platform !== "linux") return
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mimocode-running-install-"))
+    created.push(dir)
+    const installDir = path.join(dir, "installed")
+    const destination = path.join(installDir, "mimo")
+    await fs.mkdir(installDir, { recursive: true })
+    await fs.copyFile("/bin/sleep", destination)
+    await fs.chmod(destination, 0o755)
+    const running = Bun.spawn([destination, "30"], { stdout: "ignore", stderr: "ignore" })
+    await Bun.sleep(50)
+
+    const subprocess = Bun.spawn(
+      ["bash", path.resolve(import.meta.dir, "../../../..", "install"), "--binary", "/bin/true", "--no-modify-path"],
+      {
+        env: {
+          ...Bun.env,
+          MIMOCODE_INSTALL_DIR: installDir,
+          MIMOCODE_BUNDLE_DIR: path.join(dir, "missing-bundle"),
+          MIMOCODE_SKIP_DEPENDENCY_CHECK: "1",
+        },
+        stdout: "ignore",
+        stderr: "pipe",
+      },
+    )
+    const [exitCode, stderr] = await Promise.all([subprocess.exited, new Response(subprocess.stderr).text()])
+    running.kill()
+    await running.exited
+
+    expect({ exitCode, stderr }).toEqual({
+      exitCode: 0,
+      stderr: expect.stringContaining("PentesterCode bundle not found"),
+    })
+    expect(await Bun.file(destination).bytes()).toEqual(await Bun.file("/bin/true").bytes())
+  })
+
   test("Windows installer accepts an offline binary", async () => {
     if (process.platform !== "win32") return
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mimocode-install-"))
