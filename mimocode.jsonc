@@ -1,0 +1,35 @@
+{
+  "$schema": "https://mimo.xiaomi.com/mimocode/config.json",
+
+  // Config de PROJETO (versionada). Lida sempre que o app roda dentro deste
+  // repositório, em qualquer OS, independente do MIMOCODE_HOME do modo dev.
+  "provider": {
+    // Provedor local via LM Studio (Local API Server em http://localhost:1234).
+    // Fallback para quando não há API key de provedor na nuvem.
+    "lmstudio": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LM Studio (local)",
+      "options": {
+        // 127.0.0.1 evita problema de resolução IPv6 do "localhost".
+        "baseURL": "http://127.0.0.1:1234/v1",
+        // LM Studio ignora a chave, mas o SDK exige um valor não-vazio.
+        "apiKey": "lm-studio"
+      },
+      "models": {
+        // O ID precisa bater EXATAMENTE com o modelo carregado no LM Studio.
+        // Em CADA máquina, confira os IDs em: GET http://127.0.0.1:1234/v1/models
+        // e ajuste/adicione aqui conforme o que estiver carregado.
+        "qwythos-9b-claude-mythos-5-1m": {
+          "name": "Qwythos 9B (local)",
+          "tool_call": true,
+          "reasoning": true,
+          "interleaved": { "field": "reasoning_content" },
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          }
+        }
+      }
+    }
+  }
+}
