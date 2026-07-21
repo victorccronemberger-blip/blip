@@ -574,6 +574,22 @@ const live: Layer.Layer<
         msgCount: messages.length,
         toolCount: Object.keys(tools).length,
       })
+      yield* plugin
+        .trigger(
+          "session.llm.request",
+          {
+            sessionID: input.sessionID,
+            providerID: input.model.providerID,
+            modelID: input.model.id,
+            trajectory: [
+              ...system.map((content) => ({ role: "system", content })),
+              ...requestMessages,
+            ],
+            systemPrompt: system,
+          },
+          {},
+        )
+        .pipe(Effect.ignore)
 
       return streamText({
         onError(error) {

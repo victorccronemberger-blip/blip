@@ -177,7 +177,11 @@ function normalizeMessages(
     return result
   }
 
-  if (typeof model.capabilities.interleaved === "object" && model.capabilities.interleaved.field) {
+  if (
+    typeof model.capabilities.interleaved === "object" &&
+    model.capabilities.interleaved.field &&
+    model.api.npm !== "@openrouter/ai-sdk-provider"
+  ) {
     const field = model.capabilities.interleaved.field
     return msgs.map((msg) => {
       if (msg.role === "assistant" && Array.isArray(msg.content)) {
@@ -187,24 +191,18 @@ function normalizeMessages(
         // Filter out reasoning parts from content
         const filteredContent = msg.content.filter((part: any) => part.type !== "reasoning")
 
-        // Include reasoning_content | reasoning_details directly on the message for all assistant messages
-        if (reasoningText) {
-          return {
-            ...msg,
-            content: filteredContent,
-            providerOptions: {
-              ...msg.providerOptions,
-              openaiCompatible: {
-                ...msg.providerOptions?.openaiCompatible,
-                [field]: reasoningText,
-              },
-            },
-          }
-        }
-
+        // Always set the field even when empty — some providers (e.g. DeepSeek) may return empty
+        // reasoning_content which still needs to be sent back in subsequent requests.
         return {
           ...msg,
           content: filteredContent,
+          providerOptions: {
+            ...msg.providerOptions,
+            openaiCompatible: {
+              ...msg.providerOptions?.openaiCompatible,
+              [field]: reasoningText,
+            },
+          },
         }
       }
 
@@ -454,6 +452,20 @@ function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage
   }
 
   return msgs
+}
+
+// Minimal crash guard: ensure msg.content is never a non-string non-array value
+// (object, undefined, null) that would blow up downstream `.map()` calls.
+// Strings are valid ModelMessage content (the AI SDK accepts content: string |
+// Array) and are left untouched. Only genuinely-invalid types are normalized
+// to a safe empty array so every downstream path can safely call `.map()`.
+function normalizeContentArray(msgs: ModelMessage[]): ModelMessage[] {
+  return msgs.map((msg) => {
+    if (typeof msg.content === "string" || Array.isArray(msg.content)) return msg
+    // object / undefined / null — not a valid ModelMessage content shape;
+    // wrap in an empty array so .map() downstream never throws.
+    return { ...msg, content: [] } as ModelMessage
+  })
 }
 
 function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMessage[] {
@@ -756,6 +768,9 @@ function mapProviderOptions(
 }
 
 export function message(msgs: ModelMessage[], model: Provider.Model, options: Record<string, unknown>) {
+  // Guard against genuinely-invalid content (object/undefined/null) that would
+  // blow up downstream .map() calls. Strings are valid and left untouched.
+  msgs = normalizeContentArray(msgs)
   msgs = unsupportedParts(msgs, model)
   msgs = limitImages(msgs, model)
   msgs = normalizeMessages(msgs, model, options)
@@ -1304,7 +1319,9 @@ export function options(input: {
   if (
     input.model.providerID === "openai" ||
     input.model.api.npm === "@ai-sdk/openai" ||
-    input.model.api.npm === "@ai-sdk/github-copilot"
+    input.model.api.npm === "@ai-sdk/github-copilot" ||
+    input.model.api.npm === "@ai-sdk/amazon-bedrock/mantle" ||
+    input.model.api.npm === "@ai-sdk/xai"
   ) {
     result["store"] = false
   }
@@ -1340,7 +1357,7 @@ export function options(input: {
     }
   }
 
-  if (input.model.providerID === "openai" || input.providerOptions?.setCacheKey) {
+  if (input.model.providerID === "openai" || input.model.api.npm === "@ai-sdk/xai" || input.providerOptions?.setCacheKey) {
     result["promptCacheKey"] = input.sessionID
   }
 
@@ -1441,7 +1458,8 @@ export function smallOptions(model: Provider.Model) {
   if (
     model.providerID === "openai" ||
     model.api.npm === "@ai-sdk/openai" ||
-    model.api.npm === "@ai-sdk/github-copilot"
+    model.api.npm === "@ai-sdk/github-copilot" ||
+    model.api.npm === "@ai-sdk/xai"
   ) {
     // Match the main-model path: request encrypted reasoning so store:false
     // stays round-trippable if a small-model call ever runs a tool loop.

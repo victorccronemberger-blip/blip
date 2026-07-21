@@ -36,6 +36,7 @@ export const Info = z
     agent: z.string().optional(),
     model: z.string().optional(),
     source: z.enum(["command", "mcp", "skill"]).optional(),
+    bundled: z.boolean().optional(),
     // workaround for zod not supporting async functions natively so we use getters
     // https://zod.dev/v4/changelog?id=zfunction
     template: z.promise(z.string()).or(z.string()),
@@ -194,6 +195,7 @@ export const layer = Layer.effect(
           name: Default.DEEP_RESEARCH,
           description: "deep multi-source, fact-checked research report (runs the deep-research workflow)",
           source: "command",
+          bundled: true,
           subtask: false,
           get template() {
             return deepResearchTemplate()
@@ -265,6 +267,7 @@ export const layer = Layer.effect(
           name: item.name,
           description: item.description,
           source: "skill",
+          bundled: item.bundled,
           get template() {
             return item.content
           },

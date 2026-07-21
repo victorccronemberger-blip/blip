@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { detectTrigger } from "../../../../src/cli/cmd/tui/component/prompt/autocomplete-detect"
+import { detectTrigger, exactSubmitOption } from "../../../../src/cli/cmd/tui/component/prompt/autocomplete-detect"
 import { tokenEndWidth } from "../../../../src/cli/cmd/tui/component/prompt/offset"
 
 // cursorWidth is the editor's display-width cursor offset (CJK = 2 columns).
@@ -89,6 +89,26 @@ describe("detectTrigger", () => {
   test("prefers later trigger when multiple exist", () => {
     // "hello /effect /fro" — should detect the LAST / (at position 14)
     expect(detectTrigger("hello /effect /fro", 18)).toEqual({ kind: "/", index: 14 })
+  })
+})
+
+describe("exactSubmitOption", () => {
+  const options = [
+    { display: "/frontend-design  " },
+    { display: "/前端设计  ", submitOnSelect: true },
+  ]
+
+  test("returns an exact Chinese skill alias for immediate submission", () => {
+    expect(exactSubmitOption("/", "前端设计", options)).toBe(options[1])
+  })
+
+  test("does not immediately submit partial aliases or canonical commands", () => {
+    expect(exactSubmitOption("/", "前端", options)).toBeUndefined()
+    expect(exactSubmitOption("/", "frontend-design", options)).toBeUndefined()
+  })
+
+  test("does not submit from non-slash autocomplete", () => {
+    expect(exactSubmitOption("@", "前端设计", options)).toBeUndefined()
   })
 })
 

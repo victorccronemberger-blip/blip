@@ -1547,6 +1547,8 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, anthropicModel, {})
 
     expect(result).toHaveLength(2)
+    // String content is left unchanged by the crash guard (strings are valid
+    // ModelMessage content — the AI SDK handles them natively).
     expect(result[0].content).toBe("Hello")
     expect(result[1].content).toBe("World")
   })
@@ -2729,6 +2731,8 @@ describe("ProviderTransform.message - cache control on gateway", () => {
 
     const result = ProviderTransform.message(msgs, model, {}) as any[]
 
+    // String content is left as-is (not normalized to array), so cache markers
+    // are applied at the message level — the pre-existing behavior.
     expect(result[0].providerOptions).toEqual({
       anthropic: {
         cacheControl: {
@@ -4356,5 +4360,223 @@ describe("ProviderTransform.schema - moonshot combiner sibling type", () => {
     ProviderTransform.schema(moonshot, input)
     expect(JSON.stringify(input)).toBe(snapshot)
     expect(input.properties.operation.type).toBe("object")
+  })
+})
+
+describe("ProviderTransform.message - non-array content guard (j.map is not a function)", () => {
+  const anthropicModel = {
+    id: "anthropic/claude-3-5-sonnet",
+    providerID: "anthropic",
+    api: {
+      id: "claude-3-5-sonnet-20241022",
+      url: "https://api.anthropic.com",
+      npm: "@ai-sdk/anthropic",
+    },
+    name: "Claude 3.5 Sonnet",
+    capabilities: {
+      temperature: true,
+      reasoning: false,
+      attachment: true,
+      toolcall: true,
+      input: { text: true, audio: false, image: true, video: false, pdf: true },
+      output: { text: true, audio: false, image: false, video: false, pdf: false },
+      interleaved: false,
+    },
+    cost: { input: 0.003, output: 0.015, cache: { read: 0.0003, write: 0.00375 } },
+    limit: { context: 200000, output: 8192 },
+    status: "active",
+    options: {},
+    headers: {},
+  } as any
+
+  const genericModel = {
+    id: "openai/gpt-4o",
+    providerID: "openai",
+    api: { id: "gpt-4o", url: "https://api.openai.com", npm: "@ai-sdk/openai" },
+    name: "GPT-4o",
+    capabilities: {
+      temperature: true,
+      reasoning: false,
+      attachment: true,
+      toolcall: true,
+      input: { text: true, audio: false, image: true, video: false, pdf: false },
+      output: { text: true, audio: false, image: false, video: false, pdf: false },
+      interleaved: false,
+    },
+    cost: { input: 0.005, output: 0.015, cache: { read: 0.0025, write: 0.005 } },
+    limit: { context: 128000, output: 4096 },
+    status: "active",
+    options: {},
+    headers: {},
+  } as any
+
+  test("string content is left unchanged (strings are valid ModelMessage content)", () => {
+    const msgs = [{ role: "user", content: "Hello" }] as any[]
+    const result = ProviderTransform.message(msgs, genericModel, {})
+    expect(result).toHaveLength(1)
+    expect(result[0].content).toBe("Hello")
+  })
+
+  test("empty string content is left unchanged", () => {
+    const msgs = [
+      { role: "assistant", content: "" },
+      { role: "user", content: "next" },
+    ] as any[]
+    const result = ProviderTransform.message(msgs, anthropicModel, {})
+    // The empty string assistant gets dropped by normalizeMessages (anthropic
+    // filtering), so only the user message remains.
+    expect(result).toHaveLength(1)
+    expect(result[0].content).toBe("next")
+  })
+
+  test("undefined content is normalized to empty array (crash guard)", () => {
+    const msgs = [{ role: "user", content: undefined }] as any[]
+    const result = ProviderTransform.message(msgs, genericModel, {})
+    expect(result).toHaveLength(1)
+    expect(Array.isArray(result[0].content)).toBe(true)
+    expect(result[0].content).toEqual([])
+  })
+
+  test("null content is normalized to empty array (crash guard)", () => {
+    const msgs = [{ role: "user", content: null }] as any[]
+    const result = ProviderTransform.message(msgs, genericModel, {})
+    expect(result).toHaveLength(1)
+    expect(Array.isArray(result[0].content)).toBe(true)
+    expect(result[0].content).toEqual([])
+  })
+
+  test("object content is normalized to empty array (crash guard)", () => {
+    const msgs = [{ role: "user", content: { type: "text", text: "oops" } }] as any[]
+    const result = ProviderTransform.message(msgs, genericModel, {})
+    expect(result).toHaveLength(1)
+    expect(Array.isArray(result[0].content)).toBe(true)
+    expect(result[0].content).toEqual([])
+  })
+
+  test("already-array content passes through unchanged", () => {
+    const msgs = [{ role: "user", content: [{ type: "text", text: "Hello" }] }] as any[]
+    const result = ProviderTransform.message(msgs, genericModel, {})
+    expect(result).toHaveLength(1)
+    expect(result[0].content).toEqual([{ type: "text", text: "Hello" }])
+  })
+
+  test("mixed: string user + array assistant + undefined all survive", () => {
+    const msgs = [
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: [{ type: "text", text: "Hi!" }] },
+      { role: "user", content: undefined },
+    ] as any[]
+    const result = ProviderTransform.message(msgs, genericModel, {})
+    // String user and array assistant survive; undefined user gets []
+    expect(result.length).toBeGreaterThanOrEqual(2)
+    expect(result[0].content).toBe("Hello")
+    expect(Array.isArray(result[1].content)).toBe(true)
+  })
+
+  test("object/undefined/null content does not throw (the original j.map bug)", () => {
+    const msgs = [
+      { role: "user", content: { some: "object" } },
+      { role: "assistant", content: undefined },
+      { role: "user", content: null },
+    ] as any[]
+    expect(() => ProviderTransform.message(msgs, genericModel, {})).not.toThrow()
+  })
+})
+
+describe("ProviderTransform.message - interleaved field: openrouter exclusion", () => {
+  const openrouterModel = {
+    id: "openrouter/anthropic/claude-sonnet-4",
+    providerID: "openrouter",
+    api: {
+      id: "anthropic/claude-sonnet-4",
+      url: "https://openrouter.ai/api",
+      npm: "@openrouter/ai-sdk-provider",
+    },
+    name: "Claude Sonnet 4",
+    capabilities: {
+      temperature: true,
+      reasoning: true,
+      attachment: true,
+      toolcall: true,
+      input: { text: true, audio: false, image: true, video: false, pdf: false },
+      output: { text: true, audio: false, image: false, video: false, pdf: false },
+      interleaved: { field: "reasoning_content" },
+    },
+    cost: { input: 0.001, output: 0.002, cache: { read: 0.0001, write: 0.0002 } },
+    limit: { context: 200000, output: 8192 },
+    status: "active",
+    options: {},
+    headers: {},
+  } as any
+
+  test("openrouter is excluded from interleaved field injection", () => {
+    const msgs = [
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "Thinking..." },
+          { type: "text", text: "Answer" },
+        ],
+      },
+      { role: "user", content: [{ type: "text", text: "next" }] },
+    ] as any[]
+
+    const result = ProviderTransform.message(msgs, openrouterModel, {})
+
+    // Reasoning parts should be LEFT IN content (not extracted to providerOptions.openaiCompatible)
+    const assistantContent = result[0].content as any[]
+    expect(assistantContent).toHaveLength(2)
+    expect(assistantContent[0].type).toBe("reasoning")
+    expect(assistantContent[0].text).toBe("Thinking...")
+    expect(assistantContent[1].type).toBe("text")
+    expect(assistantContent[1].text).toBe("Answer")
+    // The interleaved field must NOT be set on the message (openrouter excluded)
+    expect(result[0].providerOptions?.openaiCompatible?.reasoning_content).toBeUndefined()
+  })
+})
+
+describe("ProviderTransform.message - interleaved field: empty reasoning still sets the field", () => {
+  test("empty reasoning_content is echoed back (DeepSeek-style)", () => {
+    const deepseekModel = {
+      id: "deepseek/deepseek-chat",
+      providerID: "deepseek",
+      api: {
+        id: "deepseek-chat",
+        url: "https://api.deepseek.com",
+        npm: "@ai-sdk/openai-compatible",
+      },
+      name: "DeepSeek Chat",
+      capabilities: {
+        temperature: true,
+        reasoning: true,
+        attachment: false,
+        toolcall: true,
+        input: { text: true, audio: false, image: false, video: false, pdf: false },
+        output: { text: true, audio: false, image: false, video: false, pdf: false },
+        interleaved: { field: "reasoning_content" },
+      },
+      cost: { input: 0.001, output: 0.002, cache: { read: 0.0001, write: 0.0002 } },
+      limit: { context: 128000, output: 8192 },
+      status: "active",
+      options: {},
+      headers: {},
+    } as any
+
+    const msgs = [
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "" },
+          { type: "text", text: "Hello" },
+        ],
+      },
+      { role: "user", content: [{ type: "text", text: "next" }] },
+    ] as any[]
+
+    const result = ProviderTransform.message(msgs, deepseekModel, {})
+
+    expect(result[0].content).toEqual([{ type: "text", text: "Hello" }])
+    // The field MUST be set even when reasoningText is empty
+    expect(result[0].providerOptions?.openaiCompatible?.reasoning_content).toBe("")
   })
 })

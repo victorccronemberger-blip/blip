@@ -30,6 +30,74 @@
           }
         }
       }
+    },
+
+    // Zyloo — gateway unificado 100% OpenAI-compatible (GPT, Claude, Gemini,
+    // Grok, DeepSeek, Qwen, Llama) atrás de UMA chave e UM endpoint.
+    // Mesmo padrão do "zai-coding" do config global do PentesterCode.
+    //
+    // Antes de usar, defina a chave (formato sk-zy-...) como variável de ambiente:
+    //   setx ZYLOO_API_KEY "sk-zy-xxxxxxxx"   (reabra o terminal depois)
+    // Pegue/rotacione a chave em: https://zyloo.io/dashboard
+    //
+    // Os IDs abaixo vieram do catálogo em https://zyloo.io/models (2026-07).
+    // A doc da API mostra alguns IDs com hífen (ex.: zyloo/claude-opus-4-7) e a
+    // página de preços com ponto (zyloo/claude-opus-4.7). CONFIRA os IDs exatos
+    // com a sua chave via:  GET https://api.zyloo.io/v1/models  e ajuste aqui.
+    // Modelos com raciocínio estendido também existem no sufixo "-thinking".
+    "zyloo": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Zyloo (gateway unificado)",
+      "options": {
+        // CLIs agênticos usam a raiz; o SDK openai-compatible acrescenta
+        // "/chat/completions", então o baseURL precisa terminar em /v1.
+        "baseURL": "https://api.zyloo.io/v1",
+        "apiKey": "{env:ZYLOO_API_KEY}"
+      },
+      "models": {
+        // Anthropic (Claude)
+        "zyloo/claude-fable-5-1m":   { "name": "Claude Fable 5 (1M) — Zyloo",   "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/claude-fable-5":      { "name": "Claude Fable 5 — Zyloo",        "tool_call": true, "limit": { "context": 200000,  "output": 65536 } },
+        "zyloo/claude-4-8":          { "name": "Claude Opus 4.8 (1M) — Zyloo",  "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/claude-opus-4.7":     { "name": "Claude Opus 4.7 (1M) — Zyloo",  "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/claude-opus-4.6":     { "name": "Claude Opus 4.6 (1M) — Zyloo",  "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/claude-opus-4.5":     { "name": "Claude Opus 4.5 — Zyloo",       "tool_call": true, "limit": { "context": 200000,  "output": 65536 } },
+        "zyloo/claude-sonnet-4.6":   { "name": "Claude Sonnet 4.6 (1M) — Zyloo","tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/claude-sonnet-4.5":   { "name": "Claude Sonnet 4.5 (1M) — Zyloo","tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/claude-haiku-4.5":    { "name": "Claude Haiku 4.5 — Zyloo",      "tool_call": true, "limit": { "context": 200000,  "output": 32768 } },
+
+        // OpenAI (GPT)
+        "zyloo/gpt-5.5-pro":         { "name": "GPT-5.5 Pro (1M) — Zyloo",      "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/gpt-5.5":             { "name": "GPT-5.5 (1M) — Zyloo",          "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/gpt-5.4":             { "name": "GPT-5.4 (1M) — Zyloo",          "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/gpt-5.2":             { "name": "GPT-5.2 (400K) — Zyloo",        "tool_call": true, "limit": { "context": 400000,  "output": 65536 } },
+        "zyloo/gpt-5.1":             { "name": "GPT-5.1 (400K) — Zyloo",        "tool_call": true, "limit": { "context": 400000,  "output": 65536 } },
+        "zyloo/gpt-4.1":             { "name": "GPT-4.1 (1M) — Zyloo",          "tool_call": true, "limit": { "context": 1048576, "output": 32768 } },
+        "zyloo/gpt-4o":              { "name": "GPT-4o (128K) — Zyloo",         "tool_call": true, "limit": { "context": 128000,  "output": 16384 } },
+
+        // Google (Gemini)
+        "zyloo/gemini-3.5-flash":    { "name": "Gemini 3.5 Flash (1M) — Zyloo", "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/gemini-3.1-pro":      { "name": "Gemini 3.1 Pro (1M) — Zyloo",   "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/gemini-2.5-pro":      { "name": "Gemini 2.5 Pro (1M) — Zyloo",   "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+        "zyloo/gemini-2.5-flash":    { "name": "Gemini 2.5 Flash (1M) — Zyloo", "tool_call": true, "limit": { "context": 1048576, "output": 65536 } },
+
+        // xAI (Grok)
+        "zyloo/grok-4.3":            { "name": "Grok 4.3 (1M) — Zyloo",         "tool_call": true, "limit": { "context": 1048576, "output": 32768 } },
+        "zyloo/grok-4.2":            { "name": "Grok 4.2 (2M) — Zyloo",         "tool_call": true, "limit": { "context": 2097152, "output": 32768 } },
+        "zyloo/grok-4.1":            { "name": "Grok 4.1 (1M) — Zyloo",         "tool_call": true, "limit": { "context": 1048576, "output": 32768 } },
+
+        // DeepSeek
+        "zyloo/deepseek-v4-flash":   { "name": "DeepSeek V4 Flash (1M) — Zyloo","tool_call": true, "limit": { "context": 1048576, "output": 32768 } },
+        "zyloo/deepseek-v3.2":       { "name": "DeepSeek V3.2 (131K) — Zyloo",  "tool_call": true, "limit": { "context": 131072,  "output": 32768 } },
+
+        // Qwen
+        "zyloo/qwen-3.6-plus":       { "name": "Qwen 3.6 Plus (1M) — Zyloo",    "tool_call": true, "limit": { "context": 1048576, "output": 32768 } },
+
+        // Meta (Llama)
+        "zyloo/llama-4-scout":       { "name": "Llama 4 Scout (10M) — Zyloo",   "tool_call": true, "limit": { "context": 10485760, "output": 32768 } },
+        "zyloo/llama-4-maverick":    { "name": "Llama 4 Maverick (1M) — Zyloo", "tool_call": true, "limit": { "context": 1048576,  "output": 32768 } },
+        "zyloo/llama-3.3-70b":       { "name": "Llama 3.3 70B (131K) — Zyloo",  "tool_call": true, "limit": { "context": 131072,   "output": 32768 } }
+      }
     }
   }
 }

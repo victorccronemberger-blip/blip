@@ -419,7 +419,7 @@ confirmation. Only use it where you fully trust the workspace.
 ## Development
 
 ```bash
-bun install              # Install dependencies
+bun ci                   # Install dependencies (= bun install --frozen-lockfile)
 bun run dev              # Run in development mode
 bun turbo typecheck      # Type check
 ```

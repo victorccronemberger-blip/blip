@@ -45,7 +45,8 @@ export const dict = {
 
   // Tips
   "tui.tips.label": "Sugerencia",
-  "tui.tips.plain_terminal": "Recomendamos usar iTerm o la terminal de VS Code",
+  "tui.tips.plain_terminal":
+    "La terminal predeterminada de Mac tiene limitaciones de renderizado. Usa iTerm2 o la terminal de VS Code",
   "tui.tips.attach_file":
     "Escribe {highlight}@{/highlight} seguido del nombre de archivo para buscar de forma difusa y adjuntar archivos",
   "tui.tips.shell_prefix":
@@ -66,8 +67,6 @@ export const dict = {
     "Usa {highlight}/undo{/highlight} para revertir el último mensaje y los cambios en archivos",
   "tui.tips.redo":
     "Usa {highlight}/redo{/highlight} para restaurar mensajes y cambios deshechos previamente",
-  "tui.tips.share":
-    "Ejecuta {highlight}/share{/highlight} para crear un enlace público a tu conversación en opencode.ai",
   "tui.tips.drag_drop": "Arrastra y suelta imágenes o PDF en el terminal para añadirlos como contexto",
   "tui.tips.paste_image":
     "Pulsa {highlight}Ctrl+V{/highlight} para pegar imágenes desde el portapapeles (en macOS usa Ctrl+V, no Cmd+V — la terminal intercepta Cmd+V)",
@@ -182,8 +181,6 @@ export const dict = {
     "Ejecuta {highlight}mimo auth list{/highlight} para ver todos los proveedores configurados",
   "tui.tips.agent_create":
     "Ejecuta {highlight}mimo agent create{/highlight} para crear un agente con asistente guiado",
-  "tui.tips.github_trigger":
-    "Usa {highlight}/opencode{/highlight} en issues/PR de GitHub para disparar acciones de IA",
   "tui.tips.github_install":
     "Ejecuta {highlight}mimo github install{/highlight} para configurar el workflow de GitHub",
   "tui.tips.github_oc":
@@ -234,8 +231,6 @@ export const dict = {
     "Activa {highlight}scroll_acceleration{/highlight} en {highlight}tui.json{/highlight} para un desplazamiento suave",
   "tui.tips.username_toggle":
     "Activa/desactiva la visualización del nombre de usuario desde la paleta de comandos ({highlight}Ctrl+P{/highlight})",
-  "tui.tips.docker":
-    "Ejecuta {highlight}docker run -it --rm ghcr.io/anomalyco/opencode{/highlight} para uso en contenedor",
   "tui.tips.zen":
     "Usa {highlight}/connect{/highlight} con MiMo Code para modelos seleccionados y probados",
   "tui.tips.agents_md":
@@ -300,6 +295,11 @@ export const dict = {
     "Investigación multi-fuente profunda con informe citado y verificado",
   "tui.skill.modern-python-toolchain.description":
     "Configuración de proyecto Python moderno con uv, ruff y pyright",
+  "tui.skill.data-analytics.description":
+    "Analizar datos de producto y negocio, diseñar KPI y crear dashboards e informes",
+  "tui.skill.product-design.description": "Investigar, auditar, prototipar y validar diseños de producto y UX",
+  "tui.skill.sales.description":
+    "Preparar reuniones, investigar cuentas, planificar ventas y usar sistemas comerciales",
   "tui.skill.compose:ask.description": "Solicitar decisiones o aclaraciones al usuario",
   "tui.skill.compose:brainstorm.description": "Explorar requisitos y diseño antes de implementar",
   "tui.skill.compose:debug.description": "Depuración sistemática antes de proponer correcciones",
@@ -411,6 +411,24 @@ export const dict = {
   "tui.dialog.export.hint.confirm_action": "para confirmar",
   "tui.dialog.export.hint.options_action": "para opciones",
   "tui.toast.copied_to_clipboard": "Copiado al portapapeles",
+  "tui.toast.try_best.paused_other": "Se detectó un bucle try-best; la sesión {{session}} se ha pausado.",
+  "tui.toast.try_best.handoff_failed": "No se pudo iniciar la transferencia al entorno seleccionado.",
+  "tui.toast.try_best.continue_failed": "No se pudo continuar la sesión",
+  "tui.dialog.try_best.title": "Bucle try-best detectado — turno pausado",
+  "tui.dialog.try_best.reason.edit_repeat": "Se repitieron ediciones casi idénticas {{count}} veces.",
+  "tui.dialog.try_best.reason.edit_repeat_path":
+    "Se repitieron ediciones casi idénticas {{count}} veces en {{path}}.",
+  "tui.dialog.try_best.reason.bash_retry":
+    "El mismo comando fallido se reintentó {{count}} veces sin una edición correcta.",
+  "tui.dialog.try_best.reason.action_streak":
+    "{{count}} acciones consecutivas de {{action}} no produjeron ningún progreso observable.",
+  "tui.dialog.try_best.action.edit": "edición",
+  "tui.dialog.try_best.action.verify": "verificación",
+  "tui.dialog.try_best.action.same_kind": "la misma clase",
+  "tui.dialog.try_best.handoff.title": "Transferir a {{target}}",
+  "tui.dialog.try_best.handoff.description": "Pedir a MiMo que delegue el trabajo pendiente en este entorno",
+  "tui.dialog.try_best.continue.title": "Continuar con {{model}}",
+  "tui.dialog.try_best.continue.description": "Pedir al modelo actual que abandone este enfoque y vuelva a planificar",
   "tui.toast.instructions_loaded": "Cargado {{files}}",
   "tui.toast.update_available.title": "Actualización disponible",
   "tui.toast.update_available.confirm": "La nueva versión v{{version}} está disponible. ¿Desea actualizar ahora?",

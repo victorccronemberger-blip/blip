@@ -251,7 +251,7 @@ def ref(paragraph, name):
 | Image renders huge | Only `width` or `height` supplied ≥ page width | Compute `Cm(15)` (roughly page-content width) and let the other axis auto-scale. |
 | File opens with "content had problems" | Manually inserted XML with unbalanced tags | Reopen the exploded directory, run `xmllint --noout word/document.xml`, fix the offending element. |
 | "Missing font" warning on open (Cambria, Calibri, CJK fonts) | `python-docx` default template embeds font references in theme XML that may not be installed | Patch the theme after `Document()` — see recipe below. |
-| Chinese / non-ASCII text renders as `??` in some viewers | Font run has no East-Asian font | Set both `rFonts.ascii` and `rFonts.eastAsia`: `run.font.name = "Calibri"; run._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft YaHei")` |
+| Chinese / non-ASCII text renders as `??` in some viewers | Font run has no East-Asian font | Set both the ASCII and East-Asian typefaces: `run.font.name = "Calibri"; run._element.get_or_add_rPr().get_or_add_rFonts().set(qn("w:eastAsia"), "Microsoft YaHei")` — the `get_or_add_*` form is safe when the run has no `rPr`/`rFonts` yet; setting only `run.font.name` leaves CJK on the default font. Use a CJK-capable font for the `w:eastAsia` value. |
 
 ## Recipes
 

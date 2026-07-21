@@ -131,6 +131,17 @@ export async function XaiOAuthPlugin(input: PluginInput): Promise<Hooks> {
       config.provider.xai.options ??= { baseURL: API_BASE }
       config.provider.xai.models ??= {}
       config.provider.xai.models["grok-build"] ??= { name: "Grok Build (OAuth)" }
+      // Real model id + limits pulled from the official Grok CLI's own cache
+      // (~/.grok/models_cache.json, origin cli-chat-proxy.grok.com/v1/models) -
+      // "grok-build" is that same CLI's configured default alias (~/.grok/config.toml
+      // [models] default = "grok-build"), not a fabricated id; grok-4.5 is the
+      // distinct, explicitly selectable frontier model alongside it.
+      config.provider.xai.models["grok-4.5"] ??= {
+        name: "Grok 4.5",
+        reasoning: true,
+        tool_call: true,
+        limit: { context: 500000, output: 65536 },
+      }
     },
     auth: {
       provider: "xai",
@@ -139,8 +150,9 @@ export async function XaiOAuthPlugin(input: PluginInput): Promise<Hooks> {
         if (auth.type === "api") return { apiKey: auth.key, baseURL: API_BASE }
         if (auth.type !== "oauth") return {}
 
+        const OAUTH_MODEL_IDS = new Set(["grok-build", "grok-4.5"])
         for (const [modelID, model] of Object.entries(provider.models)) {
-          if (modelID !== "grok-build") delete provider.models[modelID]
+          if (!OAUTH_MODEL_IDS.has(modelID)) delete provider.models[modelID]
           model.cost = { input: 0, output: 0, cache: { read: 0, write: 0 } }
         }
 
@@ -162,7 +174,19 @@ export async function XaiOAuthPlugin(input: PluginInput): Promise<Hooks> {
             headers.delete("x-api-key")
             headers.set("authorization", `Bearer ${updated.access}`)
             headers.set("X-XAI-Token-Auth", "xai-grok-cli")
-            headers.set("x-grok-model-override", "grok-build")
+            // Required or the proxy 426s with "Your Grok CLI version (none) is
+            // outdated" - found via the real grok.exe binary's header strings
+            // and confirmed live; bump if xAI raises the minimum accepted version.
+            headers.set("x-grok-client-version", "0.2.106")
+            const requestedModel = (() => {
+              try {
+                const body = init?.body ? JSON.parse(init.body.toString()) : undefined
+                return typeof body?.model === "string" ? body.model : undefined
+              } catch {
+                return undefined
+              }
+            })()
+            headers.set("x-grok-model-override", requestedModel ?? "grok-build")
             return fetch(requestInput, { ...init, headers })
           },
         }

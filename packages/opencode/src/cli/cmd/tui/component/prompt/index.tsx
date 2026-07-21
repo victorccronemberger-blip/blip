@@ -47,6 +47,7 @@ import { DialogWorkspaceCreate, restoreWorkspaceSession } from "../dialog-worksp
 import { DialogWorkspaceUnavailable } from "../dialog-workspace-unavailable"
 import { DialogAgreement, FREE_AGREEMENT_KEY, FREE_MODEL_IDS } from "../dialog-agreement"
 import { useArgs } from "@tui/context/args"
+import { resolveSkillSlash } from "@tui/i18n/skill"
 
 export type PromptProps = {
   sessionID?: string
@@ -1139,6 +1140,12 @@ export function Prompt(props: PromptProps) {
     const clientSlash = inputText.startsWith("/")
       ? command.slashes().find((s) => s.display === inputText.trim())
       : undefined
+    const serverSlash = inputText.startsWith("/")
+      ? iife(() => {
+          const name = inputText.split("\n")[0].split(" ")[0].slice(1)
+          return sync.data.command.find((item) => item.name === name)?.name ?? resolveSkillSlash(t, name, sync.data.command)
+        })
+      : undefined
 
     if (store.mode === "shell") {
       void sdk.client.session.shell({
@@ -1183,14 +1190,7 @@ export function Prompt(props: PromptProps) {
         )
     } else if (clientSlash) {
       clientSlash.onSelect?.()
-    } else if (
-      inputText.startsWith("/") &&
-      iife(() => {
-        const firstLine = inputText.split("\n")[0]
-        const command = firstLine.split(" ")[0].slice(1)
-        return sync.data.command.some((x) => x.name === command)
-      })
-    ) {
+    } else if (serverSlash) {
       // Parse command from first line, preserve multi-line content in arguments
       const firstLineEnd = inputText.indexOf("\n")
       const firstLine = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
@@ -1200,7 +1200,7 @@ export function Prompt(props: PromptProps) {
 
       void sdk.client.session.command({
         sessionID,
-        command: command.slice(1),
+        command: serverSlash,
         arguments: args,
         agent: agent.name,
         model: `${selectedModel.providerID}/${selectedModel.modelID}`,
@@ -1560,6 +1560,7 @@ export function Prompt(props: PromptProps) {
         fileStyleId={fileStyleId}
         agentStyleId={agentStyleId}
         promptPartTypeId={() => promptPartTypeId}
+        onSubmit={() => void submit()}
       />
       <box ref={(r) => (anchor = r)} visible={props.visible !== false}>
         <box

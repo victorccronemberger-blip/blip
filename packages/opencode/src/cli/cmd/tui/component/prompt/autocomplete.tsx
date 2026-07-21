@@ -14,13 +14,13 @@ import { SplitBorder } from "@tui/component/border"
 import { useCommandDialog } from "@tui/component/dialog-command"
 import { useLanguage } from "@tui/context/language"
 import { slashCommandDescription } from "@tui/i18n/slash-command"
-import { skillDescription } from "@tui/i18n/skill"
+import { skillDescription, skillSlashAliases } from "@tui/i18n/skill"
 import { useTerminalDimensions } from "@opentui/solid"
 import { Locale } from "@/util"
 import { Flag } from "@/flag/flag"
 import type { PromptInfo } from "./history"
 import { useFrecency } from "./frecency"
-import { detectTrigger } from "./autocomplete-detect"
+import { detectTrigger, exactSubmitOption } from "./autocomplete-detect"
 import { charAfterCursor, tokenEndWidth } from "./offset"
 
 function removeLineRange(input: string) {
@@ -65,6 +65,7 @@ export type AutocompleteOption = {
   display: string
   value?: string
   aliases?: string[]
+  submitOnSelect?: boolean
   disabled?: boolean
   description?: string
   isDirectory?: boolean
@@ -83,6 +84,7 @@ export function Autocomplete(props: {
   fileStyleId: number
   agentStyleId: number
   promptPartTypeId: () => number
+  onSubmit: () => void
 }) {
   const sdk = useSDK()
   const sync = useSync()
@@ -389,26 +391,35 @@ export function Autocomplete(props: {
       const desc = info
         ? skillDescription(lang.t, info.name, info.description, info.bundled)
         : slashCommandDescription(lang.t, serverCommand.name, serverCommand.description)
+      const select = () => {
+        const input = props.input()
+        const needsSpace = charAfterCursor(props.value, input.cursorOffset) !== " "
+        const append = "/" + serverCommand.name + (needsSpace ? " " : "")
+
+        // clearTriggerRange() already deleted the token and set cursor to store.index,
+        // so start === end here (no-op delete). Kept for robustness if called from other paths.
+        const currentCursorOffset = input.cursorOffset
+        input.cursorOffset = store.index
+        const startCursor = input.logicalCursor
+        input.cursorOffset = currentCursorOffset
+        const endCursor = input.logicalCursor
+
+        input.deleteRange(startCursor.row, startCursor.col, endCursor.row, endCursor.col)
+        input.insertText(append)
+      }
       results.push({
         display: "/" + serverCommand.name + label,
         description: desc,
-        onSelect: () => {
-          const input = props.input()
-          const needsSpace = charAfterCursor(props.value, input.cursorOffset) !== " "
-          const append = "/" + serverCommand.name + (needsSpace ? " " : "")
-
-          // clearTriggerRange() already deleted the token and set cursor to store.index,
-          // so start === end here (no-op delete). Kept for robustness if called from other paths.
-          const currentCursorOffset = input.cursorOffset
-          input.cursorOffset = store.index
-          const startCursor = input.logicalCursor
-          input.cursorOffset = currentCursorOffset
-          const endCursor = input.logicalCursor
-
-          input.deleteRange(startCursor.row, startCursor.col, endCursor.row, endCursor.col)
-          input.insertText(append)
-        },
+        onSelect: select,
       })
+      results.push(
+        ...skillSlashAliases(lang.t, serverCommand.name, serverCommand.bundled).map((alias) => ({
+          display: "/" + alias,
+          description: desc,
+          onSelect: select,
+          submitOnSelect: true,
+        })),
+      )
     }
 
     results.sort((a, b) => a.display.localeCompare(b.display))
@@ -490,8 +501,8 @@ export function Autocomplete(props: {
     }
   }
 
-  function select() {
-    const selected = options()[store.selected]
+  function select(option = options()[store.selected]) {
+    const selected = option
     if (!selected) return
     clearTriggerRange()
     hide()
@@ -599,8 +610,14 @@ export function Autocomplete(props: {
             return
           }
           if (name === "return") {
-            select()
+            const exact = exactSubmitOption(
+              store.visible,
+              props.input().getTextRange(store.index + 1, props.input().cursorOffset),
+              options(),
+            )
+            select(exact)
             e.preventDefault()
+            if (exact) setTimeout(props.onSubmit, 0)
             return
           }
           if (name === "tab") {

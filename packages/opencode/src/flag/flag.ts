@@ -133,6 +133,21 @@ export const Flag = {
   MIMOCODE_DISABLE_CODEX_SKILLS: MIMOCODE_DISABLE_EXTERNAL_SKILLS || truthy("MIMOCODE_DISABLE_CODEX_SKILLS"),
   MIMOCODE_DISABLE_OPENCODE_SKILLS: MIMOCODE_DISABLE_EXTERNAL_SKILLS || truthy("MIMOCODE_DISABLE_OPENCODE_SKILLS"),
 
+  // Skill-search ranking and loading policy. Exact mentions stay above BM25;
+  // the BM25/coverage blend has a 0.90 ceiling, and near-max results auto-load.
+  MIMOCODE_SKILL_SEARCH_EXACT_SCORE: 1,
+  MIMOCODE_SKILL_SEARCH_BM25_K1: 1.5,
+  MIMOCODE_SKILL_SEARCH_BM25_LENGTH_NORMALIZATION: 0.75,
+  MIMOCODE_SKILL_SEARCH_BM25_IDF_SMOOTHING: 0.5,
+  MIMOCODE_SKILL_SEARCH_BM25_SCORE_WEIGHT: 0.55,
+  MIMOCODE_SKILL_SEARCH_QUERY_COVERAGE_WEIGHT: 0.35,
+  MIMOCODE_SKILL_SEARCH_AUTO_LOAD_THRESHOLD: 0.85,
+  MIMOCODE_SKILL_SEARCH_SCORE_PRECISION: 4,
+  MIMOCODE_SKILL_SEARCH_MAX_RESULTS: 3,
+  MIMOCODE_SKILL_SEARCH_STEM_MIN_LENGTH: 3,
+  MIMOCODE_SKILL_SEARCH_FILE_SAMPLE_LIMIT: 10,
+  MIMOCODE_SKILL_SEARCH_REFRESH_INTERVAL_MS: 2 * 60 * 60 * 1000,
+
   // Defaults to false. When enabled, skill-source commands appear in the `/`
   // autocomplete dropdown alongside user commands and MCP prompts. Skills are
   // surfaced in `/` completion by default; set MIMOCODE_DISABLE_SLASH_SKILLS=1
@@ -150,6 +165,17 @@ export const Flag = {
   MIMOCODE_SERVER_PASSWORD: process.env["MIMOCODE_SERVER_PASSWORD"],
   MIMOCODE_SERVER_USERNAME: process.env["MIMOCODE_SERVER_USERNAME"],
   MIMOCODE_ENABLE_QUESTION_TOOL: truthy("MIMOCODE_ENABLE_QUESTION_TOOL"),
+
+  // Defaults to false (tool_script hidden). Set MIMOCODE_ENABLE_TOOL_SCRIPT=true
+  // (or 1, or the umbrella MIMOCODE_EXPERIMENTAL) to register the tool_script
+  // sandbox tool. Getter so tests can flip the env var at runtime.
+  get MIMOCODE_ENABLE_TOOL_SCRIPT() {
+    return MIMOCODE_EXPERIMENTAL || truthy("MIMOCODE_ENABLE_TOOL_SCRIPT")
+  },
+
+  // Defaults to false. Set MIMOCODE_ENABLE_TRY_BEST_HANDOFF=true (or 1) to
+  // enable try-best loop detection, automatic turn pausing, and handoff UI.
+  MIMOCODE_ENABLE_TRY_BEST_HANDOFF: truthy("MIMOCODE_ENABLE_TRY_BEST_HANDOFF"),
 
   // Defaults to false. The edit tool does pure exact-string matching with
   // explicit error signals. Set MIMOCODE_ENABLE_FUZZY_EDIT=true to opt into the

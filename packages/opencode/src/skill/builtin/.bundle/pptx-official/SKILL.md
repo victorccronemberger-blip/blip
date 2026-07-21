@@ -46,6 +46,8 @@ curl -fsSL https://bun.sh/install | bash
 # Windows: powershell -c "irm bun.sh/install.ps1|iex"
 ```
 
+Only if the user explicitly refuses `uv` / `bun`, substitute `pip` (in a venv you manage yourself) for `uv`, and `npm`/`pnpm` + `npx tsx` for `bun` — everything else in this skill stays the same.
+
 ### Python (uv)
 
 Python dependencies are managed by `uv`. Do not use `pip` directly.
@@ -170,15 +172,28 @@ of each file for its full CLI options.
 
 A live preview server is available for real-time slide feedback.
 **Not started by default.** When multi-slide work begins, ask the user
-if they want live preview enabled. If yes:
+if they want live preview enabled.
+
+**Only offer this in a pure command-line environment.** This server is
+for the MiMoCode CLI. If you are running inside a host that embeds
+MiMoCode via the SDK — a web UI, a desktop app, an IDE plugin, etc. —
+that host almost certainly has its own native preview / file-open
+mechanism; use it instead and do NOT start this server.
+
+If yes, and this is a CLI environment:
 
 ```bash
+# `scripts/preview.ts` lives in this skill's bundle directory, not in
+# your cwd. Prefix it with the absolute path shown in this skill's
+# location header (the folder that contains SKILL.md) — refer to it
+# as <SKILL_DIR> below.
+
 # Start (spawns background server, prints URL, exits immediately)
-bun run scripts/preview.ts output.pptx
-bun run scripts/preview.ts output.pptx --port 5000
+bun run <SKILL_DIR>/scripts/preview.ts /path/to/output.pptx
+bun run <SKILL_DIR>/scripts/preview.ts /path/to/output.pptx --port 5000
 
 # Stop
-bun run scripts/preview.ts --stop output.pptx
+bun run <SKILL_DIR>/scripts/preview.ts --stop /path/to/output.pptx
 ```
 
 If the server is already running, `preview.ts` detects this via PID file
@@ -367,9 +382,15 @@ isn't, inform the user and offer to spawn a vision subagent instead.
   display size (see `create.md` → *Images*).
 - **Fonts not embedded** — `python-pptx` does not embed fonts. If the deck
   is opened on a machine without the chosen font, PowerPoint substitutes,
-  and layout drifts. Either use system-safe fonts (Calibri, Arial, Segoe UI,
-  Times New Roman, Consolas) or ship the .pptx alongside a font install
-  step.
+  and layout drifts. For **Latin** text, prefer system-safe fonts (Calibri,
+  Arial, Segoe UI, Times New Roman, Consolas) or ship the .pptx alongside a
+  font install step.
+- **CJK text needs the East-Asian font slot** — `run.font.name` only sets the
+  Latin typeface (`a:latin`); Chinese / Japanese / Korean glyphs come from the
+  East-Asian slot (`a:ea`), which python-pptx does not expose. Leave it unset
+  and CJK renders as tofu boxes or an inconsistent substitute. Set `a:latin` +
+  `a:ea` + `a:cs` to a CJK-capable font on every run that contains CJK text
+  (recipe in `create.md` → *CJK / East-Asian text*).
 
 ## What is out of scope
 

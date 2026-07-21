@@ -45,7 +45,8 @@ export const dict = {
 
   // Tips
   "tui.tips.label": "Astuce",
-  "tui.tips.plain_terminal": "Nous recommandons iTerm ou le terminal VS Code",
+  "tui.tips.plain_terminal":
+    "Le terminal Mac par défaut a des capacités de rendu limitées. Utilisez iTerm2 ou le terminal VS Code",
   "tui.tips.attach_file":
     "Tapez {highlight}@{/highlight} suivi d'un nom de fichier pour rechercher et joindre des fichiers",
   "tui.tips.shell_prefix":
@@ -64,8 +65,6 @@ export const dict = {
     "Exécutez {highlight}/background{/highlight} pour définir une image personnalisée comme fond d'écran d'accueil",
   "tui.tips.undo": "Utilisez {highlight}/undo{/highlight} pour annuler le dernier message et ses modifications",
   "tui.tips.redo": "Utilisez {highlight}/redo{/highlight} pour rétablir des messages et modifications précédemment annulés",
-  "tui.tips.share":
-    "Exécutez {highlight}/share{/highlight} pour créer un lien public vers votre conversation sur opencode.ai",
   "tui.tips.drag_drop": "Glissez-déposez des images ou PDF dans le terminal pour les ajouter au contexte",
   "tui.tips.paste_image":
     "Appuyez sur {highlight}Ctrl+V{/highlight} pour coller des images du presse-papiers (sur macOS, utilisez Ctrl+V et non Cmd+V — le terminal intercepte Cmd+V)",
@@ -172,8 +171,6 @@ export const dict = {
     "Exécutez {highlight}mimo auth list{/highlight} pour voir tous les fournisseurs configurés",
   "tui.tips.agent_create":
     "Exécutez {highlight}mimo agent create{/highlight} pour créer un agent en mode guidé",
-  "tui.tips.github_trigger":
-    "Utilisez {highlight}/opencode{/highlight} dans les issues/PR GitHub pour déclencher des actions IA",
   "tui.tips.github_install":
     "Exécutez {highlight}mimo github install{/highlight} pour configurer le workflow GitHub",
   "tui.tips.github_oc":
@@ -224,8 +221,6 @@ export const dict = {
     "Activez {highlight}scroll_acceleration{/highlight} dans {highlight}tui.json{/highlight} pour un défilement fluide",
   "tui.tips.username_toggle":
     "Activez/désactivez l'affichage du nom d'utilisateur via la palette de commandes ({highlight}Ctrl+P{/highlight})",
-  "tui.tips.docker":
-    "Exécutez {highlight}docker run -it --rm ghcr.io/anomalyco/opencode{/highlight} pour une utilisation conteneurisée",
   "tui.tips.zen":
     "Utilisez {highlight}/connect{/highlight} avec MiMo Code pour des modèles testés et sélectionnés",
   "tui.tips.agents_md":
@@ -288,6 +283,11 @@ export const dict = {
     "Investigation multi-sources approfondie avec rapport cité et vérifié",
   "tui.skill.modern-python-toolchain.description":
     "Configuration de projet Python moderne avec uv, ruff et pyright",
+  "tui.skill.data-analytics.description":
+    "Analyser les données produit et métier, définir des KPI et créer des tableaux de bord et rapports",
+  "tui.skill.product-design.description": "Rechercher, auditer, prototyper et valider des designs produit et UX",
+  "tui.skill.sales.description":
+    "Préparer les rendez-vous, étudier les comptes, planifier les ventes et utiliser les outils commerciaux",
   "tui.skill.compose:ask.description": "Demander une décision ou clarification à l'utilisateur",
   "tui.skill.compose:brainstorm.description": "Explorer les besoins et la conception avant l'implémentation",
   "tui.skill.compose:debug.description": "Débogage systématique avant de proposer un correctif",
@@ -400,6 +400,24 @@ export const dict = {
   "tui.dialog.export.hint.confirm_action": "pour confirmer",
   "tui.dialog.export.hint.options_action": "pour les options",
   "tui.toast.copied_to_clipboard": "Copié dans le presse-papiers",
+  "tui.toast.try_best.paused_other": "Boucle try-best détectée ; la session {{session}} a été suspendue.",
+  "tui.toast.try_best.handoff_failed": "Impossible de démarrer le transfert vers le harnais sélectionné.",
+  "tui.toast.try_best.continue_failed": "Impossible de poursuivre la session",
+  "tui.dialog.try_best.title": "Boucle try-best détectée — tour suspendu",
+  "tui.dialog.try_best.reason.edit_repeat": "Des modifications presque identiques ont été répétées {{count}} fois.",
+  "tui.dialog.try_best.reason.edit_repeat_path":
+    "Des modifications presque identiques ont été répétées {{count}} fois dans {{path}}.",
+  "tui.dialog.try_best.reason.bash_retry":
+    "La même commande en échec a été relancée {{count}} fois sans modification réussie.",
+  "tui.dialog.try_best.reason.action_streak":
+    "{{count}} actions consécutives de {{action}} n'ont produit aucun progrès observable.",
+  "tui.dialog.try_best.action.edit": "modification",
+  "tui.dialog.try_best.action.verify": "vérification",
+  "tui.dialog.try_best.action.same_kind": "même type",
+  "tui.dialog.try_best.handoff.title": "Transférer à {{target}}",
+  "tui.dialog.try_best.handoff.description": "Demander à MiMo de déléguer le travail restant à ce harnais",
+  "tui.dialog.try_best.continue.title": "Continuer avec {{model}}",
+  "tui.dialog.try_best.continue.description": "Demander au modèle actuel d'abandonner cette approche et de replanifier",
   "tui.toast.instructions_loaded": "Chargé {{files}}",
   "tui.toast.update_available.title": "Mise à jour disponible",
   "tui.toast.update_available.confirm": "La nouvelle version v{{version}} est disponible. Voulez-vous mettre à jour maintenant ?",

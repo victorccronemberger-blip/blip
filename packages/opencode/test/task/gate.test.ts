@@ -37,7 +37,6 @@ describe("TaskGate.decide", () => {
           owner: undefined,
           reactCount: 0,
           maxReact: 2,
-          mode: "main",
         })
         expect(result.needReentry).toBe(false)
         expect(result.capExceeded).toBe(false)
@@ -58,7 +57,6 @@ describe("TaskGate.decide", () => {
           owner: undefined,
           reactCount: 0,
           maxReact: 2,
-          mode: "main",
         })
         expect(result.needReentry).toBe(true)
         if (!result.needReentry) throw new Error("unreachable")
@@ -66,37 +64,7 @@ describe("TaskGate.decide", () => {
         expect(result.reentryText).toContain("<system-reminder>")
         expect(result.reentryText).toContain("T1 (open): Refactor parser")
         expect(result.reentryText).toContain("`task done <id>")
-        expect(result.reentryText).toContain("`question` tool")
-        expect(result.reentryText).toContain("Do NOT answer your own questions")
-        expect(result.reentryText).not.toContain("Status")
-        // Main-mode headline must NOT claim ownership: owner=undefined picks
-        // up subagent-orphaned tasks the main agent didn't create. Saying
-        // "you own" would mislead main into preferring abandon over completion.
-        expect(result.reentryText).toContain("these tasks in this session are still unfinished:")
-        expect(result.reentryText).not.toContain("tasks you own")
-      }),
-    ),
-  )
-
-  it.live("subagent mode includes Status/Summary header reminder", () =>
-    provideTmpdirInstance(() =>
-      Effect.gen(function* () {
-        const reg = yield* TaskRegistry.Service
-        const sess = yield* seed()
-        yield* reg.create({ session_id: sess.id, summary: "x" })
-        const result = yield* TaskGate.decide({
-          session_id: sess.id,
-          owner: undefined,
-          reactCount: 0,
-          maxReact: 2,
-          mode: "subagent",
-        })
-        expect(result.needReentry).toBe(true)
-        if (!result.needReentry) throw new Error("unreachable")
         expect(result.reentryText).toContain("**Status**/**Summary**")
-        expect(result.reentryText).not.toContain("Then continue or respond")
-        // Subagent owns the listed tasks (owner=actorID at the call site),
-        // so "you own" is accurate.
         expect(result.reentryText).toContain("tasks you own are still unfinished:")
       }),
     ),
@@ -115,7 +83,6 @@ describe("TaskGate.decide", () => {
           owner: undefined,
           reactCount: 2,
           maxReact: 2,
-          mode: "main",
         })
         expect(result.needReentry).toBe(false)
         expect(result.capExceeded).toBe(true)
@@ -137,7 +104,6 @@ describe("TaskGate.decide", () => {
           owner: "actor_X",
           reactCount: 0,
           maxReact: 2,
-          mode: "subagent",
         })
         expect(result.needReentry).toBe(true)
         if (!result.needReentry) throw new Error("unreachable")
@@ -159,7 +125,6 @@ describe("TaskGate.decide", () => {
           owner: undefined,
           reactCount: 0,
           maxReact: 2,
-          mode: "main",
         })
         expect(result.needReentry).toBe(false)
       }),

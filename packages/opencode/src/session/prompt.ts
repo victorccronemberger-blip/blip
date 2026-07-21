@@ -74,6 +74,7 @@ import { builtinSkillRoot, matchDocumentSkills } from "@/skill/builtin/extract"
 import { ToolRegistry } from "../tool"
 import { MCP } from "../mcp"
 import { normalizeToolResult } from "../mcp/tool-result"
+import { toolScriptMcp } from "../tool/tool-script-ref"
 import { LSP } from "../lsp"
 import { Flag } from "../flag/flag"
 import { ulid } from "ulid"
@@ -114,8 +115,6 @@ import { InstanceState } from "@/effect"
 import { ActorTool, type ActorPromptOps } from "@/tool/actor"
 import { SessionRunState } from "./run-state"
 import { Goal } from "./goal"
-import { TaskGate, MAX_TASK_GATE_MAIN_REACT } from "@/task/gate"
-import { TaskGateState } from "@/task/gate-state"
 import { TaskRegistry } from "@/task/registry"
 import { EffectBridge } from "@/effect"
 import { Team } from "@/team"
@@ -131,6 +130,7 @@ import {
   AUTO_DREAM_TITLE,
   AUTO_DISTILL_TITLE,
 } from "./auto-dream"
+import { skillSearchReminderForSession } from "./skill-search-reminder"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -316,14 +316,19 @@ export const layer = Layer.effect(
     const instruction = yield* Instruction.Service
     const state = yield* SessionRunState.Service
     const goal = yield* Goal.Service
-    const taskGateState = yield* TaskGateState.Service
-    const taskRegistry = yield* TaskRegistry.Service
+
     const revert = yield* SessionRevert.Service
     const summary = yield* SessionSummary.Service
     const sys = yield* SystemPrompt.Service
     const llm = yield* LLM.Service
     const actorRegistry = yield* ActorRegistry.Service
     const inbox = yield* Inbox.Service
+
+    // Late-bound ref (see tool-script-ref.ts): tool_script dispatches MCP tools
+    // through the same live client set the agent sees. Populated here (not in
+    // ToolRegistry) because MCP's layer lives in this graph — the registry
+    // providing MCP.defaultLayer itself would duplicate client connections.
+    toolScriptMcp.current = () => mcp.tools()
 
     // Track sessions that have already shown the "loaded instructions" toast so we
     // surface it once per primary session rather than on every run-loop turn.
@@ -669,7 +674,24 @@ export const layer = Layer.effect(
       const userMessage = input.messages.findLast((msg) => msg.info.role === "user")
       if (!userMessage) return input.messages
 
-      const composeModeMsg = input.messages.find((msg) => msg.info.role === "user" && msg.info.agent === "compose")
+      // Search reminders apply only to direct user sessions. They advise the
+      // primary agent when to search; the model still decides whether to call.
+      const reminder = skillSearchReminderForSession(input)
+      if (reminder) {
+        const part = yield* sessions.updatePart({
+          id: PartID.ascending(),
+          messageID: userMessage.info.id,
+          sessionID: userMessage.info.sessionID,
+          type: "text",
+          text: reminder,
+          synthetic: true,
+        })
+        userMessage.parts.push(part)
+      }
+
+      const composeModeMsg = input.messages.find(
+        (msg) => msg.info.role === "user" && msg.info.agent === "compose",
+      )
       if (composeModeMsg) {
         const ctx = yield* InstanceState.context
         const composeCfg = (yield* config.get()).compose
@@ -2173,7 +2195,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       let emptyStepStreak = 0
       // Set true when a guard hard-halts the turn (currently the empty-step
       // guard). A hard halt is terminal: it must break out immediately and
-      // NOT be re-entered by the taskGate / goalGate ReAct gates, which would
+      // NOT be re-entered by the goalGate ReAct gate, which would
       // otherwise inject a fresh user turn and re-drive a still-degraded model
       // into the same loop.
       let hardHalt = false
@@ -2327,77 +2349,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           return true
         })
 
-        // Task stop-condition gate (main agent only). Before honoring a stop,
-        // list non-terminal tasks in the session: if any remain, inject a
-        // nudge as a synthetic user turn and re-enter (return true) so the
-        // model closes them with `task done` / `task abandon`. ReAct cap +
-        // counter mirror the goal gate; cap-exceeded allows stop with a
-        // warn log (no reportedStatus on main). owner=undefined picks up
-        // tasks orphaned by subagent gates that hit their own cap. Runs
-        // BEFORE goalGate because task state is cheaper to settle and a
-        // pending-task board pollutes any goal verdict.
-        const taskGate = Effect.fn("SessionPrompt.taskGate")(function* (lastUser: MessageV2.User) {
-          if ((agentID ?? "main") !== "main") return false
-          // If the main agent has the `task` tool stripped (Permission.disabled),
-          // a nudge to call `task done` is unsatisfiable and would re-loop to
-          // cap. Skip the gate entirely. Mirrors the canWrite skip in
-          // actor/spawn.ts (Permission.disabled(["write"], ...) check on
-          // forkAgentInfo). Per-session resolution means this checks the
-          // agent's static permission only (good enough for v1; session-
-          // level overrides re-enabling task on a denied agent are
-          // pathological and out of scope).
-          const mainAgent = yield* agents.get("main").pipe(Effect.orElseSucceed(() => undefined))
-          if (mainAgent && Permission.disabled(["task"], mainAgent.permission).has("task")) return false
-          // Per-message `tools` is the second tool-strip layer (llm.ts:720
-          // `input.user.tools?.[k] !== false` filter), separate from
-          // Permission.disabled. A slash command pinning a narrow toolset for
-          // its turn can drop `task` even when permission allows it; nudging
-          // is then unsatisfiable. Same skip rationale, narrower window.
-          if (lastUser.tools?.["task"] === false) return false
-
-          const count = yield* taskGateState.get(sessionID)
-          // runLoop is annotated `R = never`; TaskGate.decide raises a
-          // TaskRegistry.Service requirement that we close locally with the
-          // layer-resolved binding so it doesn't leak into runLoop's R-set.
-          const decision = yield* TaskGate.decide({
-            session_id: sessionID,
-            owner: undefined,
-            reactCount: count,
-            maxReact: MAX_TASK_GATE_MAIN_REACT,
-            mode: "main",
-          }).pipe(Effect.provideService(TaskRegistry.Service, taskRegistry))
-          if (!decision.needReentry) {
-            if (decision.capExceeded) {
-              yield* slog.warn("task gate hit cap; allowing stop", {
-                sessionID,
-                incompleteTasks: decision.incompleteTasks,
-              })
-            }
-            yield* taskGateState.clear(sessionID)
-            return false
-          }
-          yield* taskGateState.bump(sessionID)
-          const reentry = yield* sessions.updateMessage({
-            id: MessageID.ascending(),
-            role: "user" as const,
-            sessionID,
-            agentID: lastUser.agentID,
-            agent: lastUser.agent,
-            model: lastUser.model,
-            tools: lastUser.tools,
-            format: lastUser.format,
-            time: { created: Date.now() },
-          })
-          yield* sessions.updatePart({
-            id: PartID.ascending(),
-            messageID: reentry.id,
-            sessionID,
-            type: "text",
-            synthetic: true,
-            text: decision.reentryText,
-          } satisfies MessageV2.TextPart)
-          return true
-        })
 
         // Goal stop-condition gate (main agent only). Before honoring a stop,
         // an independent judge model reads the transcript and decides whether
@@ -3125,7 +3076,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 continue
             }
             if (classification.type !== "continue") {
-              if (yield* taskGate(lastUser)) continue
               if (yield* goalGate(lastUser)) continue
               yield* slog.info("exiting loop", { classification: classification.type })
               break
@@ -3665,6 +3615,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 if (yield* handleTextRepeat({ lastUser })) return "continue" as const
                 return "break" as const
               }
+              if (result === "stop") return "break" as const
 
               if (structured !== undefined) {
                 handle.message.structured = structured
@@ -3750,7 +3701,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 )
                   return "continue" as const
               }
-              if (result === "stop") return "break" as const
               // Fork agents are always subagents (lastUser.agentID is set); use
               // per-actor compaction on overflow (same as non-fork subagent path).
               if (!isBoundedComputation && result === "overflow") {
@@ -3915,6 +3865,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               if (yield* handleTextRepeat({ lastUser })) return "continue" as const
               return "break" as const
             }
+            if (result === "stop") return "break" as const
 
             if (structured !== undefined) {
               handle.message.structured = structured
@@ -4000,7 +3951,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
             if (classification.type === "final" && classification.degraded)
               yield* slog.warn("degraded final on abnormal finish", { finish: handle.message.finish })
-            if (result === "stop") return "break" as const
             if (!isBoundedComputation && result === "overflow") {
               // Subagent overflow → per-actor compaction. Insert a boundary
               // tagged with the subagent's agent_id; the next runLoop iteration
@@ -4114,7 +4064,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             // A hard halt is terminal — skip the ReAct re-entry gates so a
             // degraded model can't be re-driven into the same empty loop.
             if (hardHalt) break
-            if (yield* taskGate(lastUser)) continue
             if (yield* goalGate(lastUser)) continue
             break
           }
@@ -4455,7 +4404,6 @@ export const defaultLayer = Layer.suspend(() =>
         CrossSpawnSpawner.defaultLayer,
         Inbox.defaultLayer,
         Goal.defaultLayer,
-        TaskGateState.defaultLayer,
         TaskRegistry.defaultLayer,
       ),
     ),

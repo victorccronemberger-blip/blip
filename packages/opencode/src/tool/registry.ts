@@ -18,6 +18,7 @@ import { WriteTool } from "./write"
 import { NotebookEditTool } from "./notebook-edit"
 import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
+import { SkillSearchTool } from "./skill-search"
 import * as Tool from "./tool"
 import { Config } from "../config"
 import { type ToolContext as PluginToolContext, type ToolDefinition } from "@mimo-ai/plugin"
@@ -68,6 +69,8 @@ import { shellWrap } from "./shell-wrap"
 import * as BashInteractive from "./bash-interactive"
 import { resolveInvocationStyle } from "./invocation-style"
 import { BuiltinWorkflow } from "@/workflow/builtin"
+import { ToolScriptTool, renderToolScriptDeclarations } from "./tool-script"
+import { toolScriptRegistry, toolScriptMcp } from "./tool-script-ref"
 
 const log = Log.create({ service: "tool.registry" })
 
@@ -149,12 +152,14 @@ export const layer = Layer.effect(
     const patchtool = yield* ApplyPatchTool
     const changedirtool = yield* ChangeDirectoryTool
     const skilltool = yield* SkillTool
+    const skillsearch = yield* SkillSearchTool
     const historytool = yield* HistoryTool
     const memorytool = yield* MemoryTool
     const tasktool = yield* TaskTool
     const crontool = yield* CronTool
     const sessiontool = yield* SessionTool
     const workflowtool = yield* WorkflowTool
+    const toolscript = yield* ToolScriptTool
     const agent = yield* Agent.Service
 
     const state = yield* InstanceState.make<State>(
@@ -239,6 +244,7 @@ export const layer = Layer.effect(
           search: Tool.init(websearch),
           code: Tool.init(codesearch),
           skill: Tool.init(skilltool),
+          skillsearch: Tool.init(skillsearch),
           patch: Tool.init(patchtool),
           changedir: Tool.init(changedirtool),
           question: Tool.init(question),
@@ -251,6 +257,7 @@ export const layer = Layer.effect(
           cron: Tool.init(crontool),
           session: Tool.init(sessiontool),
           workflow: Tool.init(workflowtool),
+          toolscript: Tool.init(toolscript),
         })
 
         return {
@@ -269,6 +276,7 @@ export const layer = Layer.effect(
             tool.fetch,
             tool.search,
             tool.code,
+            tool.skillsearch,
             tool.skill,
             tool.patch,
             tool.changedir,
@@ -278,6 +286,7 @@ export const layer = Layer.effect(
             tool.memory,
             tool.history,
             tool.task,
+            ...(Flag.MIMOCODE_ENABLE_TOOL_SCRIPT ? [tool.toolscript] : []),
             ...(Flag.MIMOCODE_EXPERIMENTAL_CRON ? [tool.cron] : []),
             ...(Flag.MIMOCODE_EXPERIMENTAL_ORCHESTRATOR ? [tool.session] : []),
             ...(Flag.MIMOCODE_EXPERIMENTAL_WORKFLOW_TOOL ? [tool.workflow] : []),
@@ -294,6 +303,10 @@ export const layer = Layer.effect(
       const builtins = s.builtin.filter((t) => !customIds.has(t.id))
       return [...builtins, ...s.custom] as Tool.Def[]
     })
+
+    // Late-bound ref (see tool-script-ref.ts): tool_script dispatches guest RPC
+    // calls through the same def list the agent sees, without a module cycle.
+    toolScriptRegistry.current = all
 
     const ids: Interface["ids"] = Effect.fn("ToolRegistry.ids")(function* () {
       return (yield* all()).map((tool) => tool.id)
@@ -320,6 +333,13 @@ export const layer = Layer.effect(
 
     const describeWorkflow = Effect.fn("ToolRegistry.describeWorkflow")(function* () {
       return renderWorkflowCatalog()
+    })
+
+    const describeToolScript = Effect.fn("ToolRegistry.describeToolScript")(function* () {
+      // MCP declarations ride along when SessionPrompt has populated the ref
+      // (interactive sessions); registry-only contexts render builtins only.
+      const mcp = toolScriptMcp.current ? yield* toolScriptMcp.current() : {}
+      return renderToolScriptDeclarations(yield* all(), mcp)
     })
 
     const describeTask = Effect.fn("ToolRegistry.describeTask")(function* (agent: Agent.Info) {
@@ -397,6 +417,7 @@ export const layer = Layer.effect(
               tool.id === ActorTool.id ? yield* describeTask(input.agent) : undefined,
               tool.id === SkillTool.id ? yield* describeSkill(input.agent) : undefined,
               tool.id === WorkflowTool.id ? yield* describeWorkflow() : undefined,
+              tool.id === ToolScriptTool.id ? yield* describeToolScript() : undefined,
             ]
               .filter(Boolean)
               .join("\n"),

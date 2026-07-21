@@ -45,7 +45,7 @@ export const dict = {
 
   // Tips
   "tui.tips.label": "Подсказка",
-  "tui.tips.plain_terminal": "Рекомендуем использовать iTerm или терминал VS Code",
+  "tui.tips.plain_terminal": "Стандартный терминал Mac имеет ограничения рендеринга. Используйте iTerm2 или терминал VS Code",
   "tui.tips.attach_file":
     "Введите {highlight}@{/highlight}, а затем имя файла, чтобы выполнить нечёткий поиск и прикрепить файлы",
   "tui.tips.shell_prefix":
@@ -66,8 +66,6 @@ export const dict = {
     "Используйте {highlight}/undo{/highlight}, чтобы отменить последнее сообщение и изменения файлов",
   "tui.tips.redo":
     "Используйте {highlight}/redo{/highlight}, чтобы вернуть ранее отменённые сообщения и изменения",
-  "tui.tips.share":
-    "Выполните {highlight}/share{/highlight}, чтобы получить публичную ссылку на диалог на opencode.ai",
   "tui.tips.drag_drop": "Перетащите изображения или PDF в терминал, чтобы добавить их в контекст",
   "tui.tips.paste_image":
     "Нажмите {highlight}Ctrl+V{/highlight}, чтобы вставить изображение из буфера обмена (в macOS используйте Ctrl+V, а не Cmd+V — терминал перехватывает Cmd+V)",
@@ -184,8 +182,6 @@ export const dict = {
     "Выполните {highlight}mimo auth list{/highlight}, чтобы увидеть всех настроенных провайдеров",
   "tui.tips.agent_create":
     "Выполните {highlight}mimo agent create{/highlight}, чтобы создать агента в пошаговом режиме",
-  "tui.tips.github_trigger":
-    "Используйте {highlight}/opencode{/highlight} в issue/PR на GitHub, чтобы запускать AI-действия",
   "tui.tips.github_install":
     "Выполните {highlight}mimo github install{/highlight}, чтобы настроить GitHub-workflow",
   "tui.tips.github_oc":
@@ -237,8 +233,6 @@ export const dict = {
     "Включите {highlight}scroll_acceleration{/highlight} в {highlight}tui.json{/highlight} для плавной прокрутки",
   "tui.tips.username_toggle":
     "Переключайте отображение имени пользователя через палитру команд ({highlight}Ctrl+P{/highlight})",
-  "tui.tips.docker":
-    "Выполните {highlight}docker run -it --rm ghcr.io/anomalyco/opencode{/highlight} для контейнерного запуска",
   "tui.tips.zen":
     "Используйте {highlight}/connect{/highlight} с MiMo Code для подобранных и протестированных моделей",
   "tui.tips.agents_md":
@@ -303,6 +297,12 @@ export const dict = {
     "Глубокое многоисточниковое исследование с перекрёстной проверкой и цитированием",
   "tui.skill.modern-python-toolchain.description":
     "Настройка Python-проекта с uv, ruff и pyright",
+  "tui.skill.data-analytics.description":
+    "Анализ данных о продукте и бизнесе, проектирование KPI, создание дашбордов и отчётов",
+  "tui.skill.product-design.description":
+    "Исследование, аудит, прототипирование и проверка дизайна продукта и UX",
+  "tui.skill.sales.description":
+    "Подготовка встреч, исследование клиентов, планирование сделок и работа с системами продаж",
   "tui.skill.compose:ask.description": "Запросить у пользователя решение или уточнение",
   "tui.skill.compose:brainstorm.description": "Исследовать требования и дизайн перед реализацией",
   "tui.skill.compose:debug.description": "Системная отладка перед предложением исправлений",
@@ -415,6 +415,23 @@ export const dict = {
   "tui.dialog.export.hint.confirm_action": "для подтверждения",
   "tui.dialog.export.hint.options_action": "для параметров",
   "tui.toast.copied_to_clipboard": "Скопировано в буфер обмена",
+  "tui.toast.try_best.paused_other": "Обнаружен цикл try-best; сеанс {{session}} приостановлен.",
+  "tui.toast.try_best.handoff_failed": "Не удалось запустить передачу выбранному исполнителю.",
+  "tui.toast.try_best.continue_failed": "Не удалось продолжить сеанс",
+  "tui.dialog.try_best.title": "Обнаружен цикл try-best — ход приостановлен",
+  "tui.dialog.try_best.reason.edit_repeat": "Почти одинаковые правки повторились {{count}} раз.",
+  "tui.dialog.try_best.reason.edit_repeat_path": "Почти одинаковые правки повторились {{count}} раз в {{path}}.",
+  "tui.dialog.try_best.reason.bash_retry":
+    "Одна и та же неудачная команда повторилась {{count}} раз без успешной правки.",
+  "tui.dialog.try_best.reason.action_streak":
+    "{{count}} последовательных действий типа «{{action}}» не дали заметного результата.",
+  "tui.dialog.try_best.action.edit": "правка",
+  "tui.dialog.try_best.action.verify": "проверка",
+  "tui.dialog.try_best.action.same_kind": "один тип",
+  "tui.dialog.try_best.handoff.title": "Передать работу {{target}}",
+  "tui.dialog.try_best.handoff.description": "Попросить MiMo поручить незавершённую работу этому исполнителю",
+  "tui.dialog.try_best.continue.title": "Продолжить с {{model}}",
+  "tui.dialog.try_best.continue.description": "Попросить текущую модель отказаться от этого подхода и составить новый план",
   "tui.toast.instructions_loaded": "Загружено {{files}}",
   "tui.toast.update_available.title": "Доступно обновление",
   "tui.toast.update_available.confirm": "Доступна новая версия v{{version}}. Обновить сейчас?",

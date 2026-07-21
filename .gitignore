@@ -48,8 +48,12 @@ token.txt
 *.cookies
 
 # Security research artifacts are never product source
-/findings/
-/recon/
+# (unanchored so this also catches nested engagement dirs, e.g.
+# packages/opencode/findings/ from a `mimo` run inside the monorepo)
+findings/
+recon/
+SCOPE.json
+.fusion/
 /nubank-engagement/
 
 # Local agent harness state
@@ -57,6 +61,7 @@ token.txt
 /.pentestercode/
 *.pid
 .mimo-worktrees
+.mimocde
 
 # experiment run artifacts (regenerated per run, not source)
 experiment/*.log

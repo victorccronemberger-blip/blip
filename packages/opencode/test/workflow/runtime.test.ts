@@ -285,10 +285,9 @@ describe("WorkflowRuntime cancel cascade", () => {
       }),
       { git: true, config: providerCfg },
     ),
-    // Headroom over the default 5s: this cancel test can run concurrently with the
-    // heavyweight real-Instance worktree-isolation tests, where CI load occasionally
-    // pushed it past 5s. Generous margin keeps it deterministic without masking hangs.
-    15000,
+    // cancel() has separate 5s bounds for fiber interruption and child reclaim;
+    // leave additional headroom for test-server and Instance cleanup under CI load.
+    30000,
   )
 
   // MR104 #2 — orphan-on-cancel race. The bug: spawnShared added the child's

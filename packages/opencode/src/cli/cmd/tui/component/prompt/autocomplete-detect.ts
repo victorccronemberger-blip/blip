@@ -2,6 +2,15 @@ import { stringIndexToWidth, widthToStringIndex } from "./offset"
 
 export type TriggerKind = "@" | "$" | "/"
 
+export function exactSubmitOption<T extends { display: string; submitOnSelect?: boolean }>(
+  trigger: TriggerKind | false,
+  query: string,
+  options: T[],
+) {
+  if (trigger !== "/") return
+  return options.find((option) => option.submitOnSelect && option.display.trimEnd() === "/" + query)
+}
+
 // Decide whether an autocomplete popup should open for the current input.
 //
 // `value` is the editor plainText (UTF-16) and `cursorWidth` is the editor's
