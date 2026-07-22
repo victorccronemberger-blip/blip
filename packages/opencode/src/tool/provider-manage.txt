@@ -1,0 +1,10 @@
+Manage which AI providers show up in the model list, by hiding/restoring them.
+
+Use this when the user wants to declutter the model list, or to bring back a provider they hid earlier. Removing makes a provider clean/unregistered — it deletes the saved API key AND hides it. It is still reversible: restoring brings the provider back keyless (ready to connect again), it does not resurrect the old key.
+
+Actions:
+- list_connected: show the ACTIVE providers (in the model list) and the ones currently REMOVED/hidden.
+- remove: clear one or more active providers' saved keys and hide them (adds to disabled_providers). The user is asked to confirm.
+- enable: restore one or more previously removed providers so they show up again (keyless).
+
+This is the backing tool for the /remove command (a TUI modal that also lets the user restore). Always run list_connected first, and only remove/enable the providers the user explicitly chose.

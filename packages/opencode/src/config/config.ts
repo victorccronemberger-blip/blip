@@ -161,6 +161,25 @@ const InfoSchema = Schema.Struct({
     description:
       "Named model groups (capability tiers, e.g. ultra/standard/lite). Each group has a default model and optional member models. A group name can be used anywhere a provider/model string is accepted.",
   }),
+  consult: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.optional(Schema.Boolean).annotate({
+        description:
+          "The `consult` tool is ON by default. Set to false to hide it entirely. When on with no `models` allowlist, any configured model can be consulted but each use is approved via the TUI permission prompt (once/always/deny).",
+      }),
+      models: Schema.optional(Schema.mutable(Schema.Array(ConfigModelID))).annotate({
+        description:
+          "Optional fixed allowlist of models the `consult` tool may call (each a provider/model string or a model_groups name). When set, ONLY these are callable and the TUI prompt is skipped. When omitted (default), consult runs in permission mode: any configured model is allowed but gated by a TUI approval — no config editing needed.",
+      }),
+      default_model: Schema.optional(ConfigModelID).annotate({
+        description:
+          "Model `consult` uses when the caller omits `model`. Must be a callable model (on `models` if that allowlist is set, otherwise any configured model).",
+      }),
+    }),
+  ).annotate({
+    description:
+      "Configures the `consult` tool, which lets the primary LLM ask another configured LLM a one-shot question (second opinion / specialist). On by default; by default the user approves each consulted model via the TUI (no allowlist file editing required). Set `models` to pin a fixed allowlist, or `enabled: false` to disable.",
+  }),
   default_agent: Schema.optional(Schema.String).annotate({
     description:
       "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid.",

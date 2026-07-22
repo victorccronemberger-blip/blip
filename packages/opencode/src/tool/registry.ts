@@ -9,6 +9,8 @@ import { HistoryTool } from "./history"
 import { MemoryTool } from "./memory"
 import { ReadTool } from "./read"
 import { ActorTool } from "./actor"
+import { ConsultTool } from "./consult"
+import { ProviderManageTool } from "./provider-manage"
 import { TaskTool } from "./task"
 import { CronTool } from "./cron"
 import { SessionTool } from "./session"
@@ -135,6 +137,8 @@ export const layer = Layer.effect(
 
     const invalid = yield* InvalidTool
     const actor = yield* ActorTool
+    const consulttool = yield* ConsultTool
+    const providermanagetool = yield* ProviderManageTool
     const read = yield* ReadTool
     const question = yield* QuestionTool
     const lsptool = yield* LspTool
@@ -226,7 +230,7 @@ export const layer = Layer.effect(
           }
         }
 
-        yield* config.get()
+        const cfg = yield* config.get()
         const questionEnabled =
           ["app", "cli", "desktop"].includes(Flag.MIMOCODE_CLIENT) || Flag.MIMOCODE_ENABLE_QUESTION_TOOL
 
@@ -240,6 +244,8 @@ export const layer = Layer.effect(
           write: Tool.init(writetool),
           notebookedit: Tool.init(notebookedit),
           actor: Tool.init(actor),
+          consult: Tool.init(consulttool),
+          providers: Tool.init(providermanagetool),
           fetch: Tool.init(webfetch),
           search: Tool.init(websearch),
           code: Tool.init(codesearch),
@@ -273,6 +279,8 @@ export const layer = Layer.effect(
             tool.write,
             tool.notebookedit,
             tool.actor,
+            ...(cfg.consult?.enabled !== false ? [tool.consult] : []),
+            tool.providers,
             tool.fetch,
             tool.search,
             tool.code,

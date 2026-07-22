@@ -58,10 +58,16 @@ SCOPE.json
 
 # Local agent harness state
 .claude/
-/.pentestercode/
+.pentestercode/
 *.pid
 .mimo-worktrees
 .mimocde
+
+# Pentester runtime state (regenerated per run, never source)
+coverage.jsonl
+vendor/pentdem/skills/data/
+**/skills/data/pentest.db
+scan.js
 
 # experiment run artifacts (regenerated per run, not source)
 experiment/*.log

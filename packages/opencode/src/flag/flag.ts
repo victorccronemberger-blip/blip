@@ -184,6 +184,12 @@ export const Flag = {
   // to match exactly.
   MIMOCODE_ENABLE_FUZZY_EDIT: truthy("MIMOCODE_ENABLE_FUZZY_EDIT"),
 
+  // Defaults to false (consult tool hidden). Set MIMOCODE_ENABLE_CONSULT=true
+  // (or 1, or the umbrella MIMOCODE_EXPERIMENTAL) to register the `consult`
+  // tool, which lets the primary LLM ask another user-configured model a
+  // one-shot question (see config.consult / consult.models allowlist).
+  MIMOCODE_ENABLE_CONSULT: MIMOCODE_EXPERIMENTAL || truthy("MIMOCODE_ENABLE_CONSULT"),
+
   // Experimental
   MIMOCODE_EXPERIMENTAL,
   MIMOCODE_EXPERIMENTAL_FILEWATCHER: Config.boolean("MIMOCODE_EXPERIMENTAL_FILEWATCHER").pipe(

@@ -41,6 +41,8 @@ const ObjectShape = Schema.StructWithRest(
     bash: Schema.optional(Rule),
     task: Schema.optional(Rule),
     actor: Schema.optional(Rule),
+    consult: Schema.optional(Rule),
+    providers: Schema.optional(Rule),
     external_directory: Schema.optional(Rule),
     question: Schema.optional(Action),
     webfetch: Schema.optional(Action),

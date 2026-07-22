@@ -1,0 +1,35 @@
+Consult another user-configured LLM for a one-shot second opinion or specialist answer.
+
+The user controls which models you may consult. There are two modes and you do not need to know which is active — just call `list_models` first to see what's available, then `ask`:
+- Permission mode (default, zero setup): any configured model can be consulted, but the FIRST time you use one the user approves it in the TUI (once / always / deny). Picking "always" remembers it. No config file editing.
+- Explicit mode: if the user set a fixed `consult.models` allowlist in mimocode.json, only those models are callable.
+
+This is NOT for spawning subagents or delegating multi-step work — use the `actor` tool for that. `consult` sends a single question to a single other model and returns its answer; there is no tool access, no session, no follow-up turns, and no memory between calls.
+
+JSON calls wrap the action payload inside an `operation` object; `action` is the discriminator field.
+
+## Operations (the `operation.action` field selects one)
+
+- list_models: discover which models are available to consult.
+          no required fields.
+          Returns "provider/model" strings — either the fixed allowlist, or (default) every configured model, each gated by a TUI approval on first use.
+- ask:         send a one-shot question to ONE model and get back its answer.
+          required: prompt
+          optional: model (defaults to consult.default_model if set), system, temperature
+
+## Enforcement
+
+A model must be either on the explicit `consult.models` allowlist, or — in the default permission mode — a real configured model that the user approves in the TUI when prompted. A model that is neither fails with a recoverable error; it never silently falls back to an arbitrary model.
+
+## When to use consult
+
+- Get a second opinion from a differently-trained model before committing to a risky or irreversible decision.
+- Ask a model with different strengths (e.g. a reasoning-heavy model, or a cheap/fast one) a focused sub-question.
+- Cross-check a conclusion against an independent model without spawning a full agent loop or burning tool budget.
+- Don't use it for: multi-step work, anything needing tool access, or when you already have high confidence — that's overhead the user didn't ask for.
+
+## Examples
+
+{"operation":{"action":"list_models"}}
+{"operation":{"action":"ask","model":"openai/gpt-5.1","prompt":"Given this stack trace, what's the most likely root cause?\n<trace>...</trace>"}}
+{"operation":{"action":"ask","model":"anthropic/claude-opus-4-5","prompt":"Review this SQL migration for correctness and race conditions:\n<migration>...</migration>","system":"You are a meticulous database reviewer.","temperature":0.2}}

@@ -20,6 +20,7 @@ import { isSystemSession } from "@/session/auto-dream"
 import semver from "semver"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogMimoLogin } from "@tui/component/dialog-mimo-login"
+import { DialogProviderRemove } from "@tui/component/dialog-provider-remove"
 import { ErrorComponent } from "@tui/component/error-component"
 import { PluginRouteMissing } from "@tui/component/plugin-route-missing"
 import { ProjectProvider } from "@tui/context/project"
@@ -820,6 +821,17 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         await sync.bootstrap()
         toast.show({ message: t("tui.command.logout.toast"), variant: "info" })
         dialog.clear()
+      },
+      category: "provider",
+    },
+    {
+      title: "Remove provider",
+      value: "provider.remove",
+      slash: {
+        name: "remove",
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogProviderRemove />)
       },
       category: "provider",
     },
