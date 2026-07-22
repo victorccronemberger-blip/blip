@@ -154,9 +154,21 @@ else
     info "Local changes preserved as $LOCAL_CHANGES_STASH"
   fi
   info "Updating $REPOSITORY_DIR to origin/$BRANCH"
-  git -C "$REPOSITORY_DIR" fetch origin "$BRANCH"
-  git -C "$REPOSITORY_DIR" switch "$BRANCH"
-  git -C "$REPOSITORY_DIR" merge --ff-only "origin/$BRANCH"
+  # An existing checkout may have been cloned with --single-branch, so the
+  # remote only tracks the branch it was cloned with. Widen the refspec and
+  # fetch with an explicit destination so refs/remotes/origin/$BRANCH always
+  # exists before we switch to it; otherwise `git switch $BRANCH` and
+  # `git merge --ff-only origin/$BRANCH` fail with "invalid reference".
+  git -C "$REPOSITORY_DIR" remote set-branches origin '*'
+  git -C "$REPOSITORY_DIR" fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+  if git -C "$REPOSITORY_DIR" show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git -C "$REPOSITORY_DIR" switch "$BRANCH"
+    git -C "$REPOSITORY_DIR" merge --ff-only "origin/$BRANCH"
+  else
+    # No local branch yet (e.g. a single-branch clone of a different branch):
+    # create it from the freshly fetched remote-tracking ref.
+    git -C "$REPOSITORY_DIR" switch -c "$BRANCH" --track "origin/$BRANCH"
+  fi
 fi
 
 [[ "$(realpath "$(git -C "$REPOSITORY_DIR" rev-parse --show-toplevel)")" == "$REPOSITORY_DIR" ]] ||
