@@ -48,10 +48,17 @@ cmd_install() {
 
 cmd_update() {
   info "Updating MiMoCode/PentesterCode — pulls latest $BRANCH, rebuilds, keeps your config + credentials"
-  # --preserve-config:      never overwrite ~/.mimocode/mimocode.jsonc or auth.json.
-  # --stash-local-changes:  the build dirties a tracked file (packages/opencode/bin/mimo),
-  #                         so a managed checkout is always "dirty" — stash it safely
-  #                         instead of aborting. install-linux.sh reports the stash ref.
+  # Each build rewrites a TRACKED file (packages/opencode/bin/mimo), so the managed
+  # checkout is always "dirty" and a plain pull aborts. Reset it to a clean state
+  # first — deterministic, no stash pile-up — since nobody should hand-edit ~/blip.
+  # This only touches the source checkout; ~/.mimocode (config + auth) is untouched.
+  if [[ -d "$SOURCE_DIR/.git" ]] && command -v git >/dev/null 2>&1; then
+    info "Resetting managed source checkout to a clean state"
+    git -C "$SOURCE_DIR" reset --hard HEAD >/dev/null 2>&1 || true
+    git -C "$SOURCE_DIR" clean -fd -e node_modules >/dev/null 2>&1 || true
+  fi
+  # --preserve-config never overwrites config/auth; --stash-local-changes is a
+  # belt-and-suspenders net for any leftover untracked file.
   run_installer --preserve-config --stash-local-changes "$@"
   ok "Update complete."
 }
