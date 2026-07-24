@@ -23,6 +23,7 @@ import { MimoAuthPlugin, AnthropicProxyPlugin } from "./mimo"
 import { XaiOAuthPlugin } from "./xai-oauth"
 import { ClaudeCodeAuthPlugin } from "./claude-code-auth"
 import { GoogleOAuthPlugin } from "./google-oauth"
+import { AntigravityOAuthPlugin } from "./antigravity-oauth"
 import { Session } from "../session"
 import type { SessionID } from "../session/schema"
 import { NamedError } from "@mimo-ai/shared/util/error"
@@ -148,6 +149,7 @@ const INTERNAL_PLUGINS: PluginInstance[] = [
   ClaudeCodeAuthPlugin,
   XaiOAuthPlugin,
   GoogleOAuthPlugin,
+  AntigravityOAuthPlugin,
   CodexAuthPlugin,
   XaiAuthPlugin,
   CopilotAuthPlugin,

@@ -54,7 +54,10 @@ findings/
 recon/
 SCOPE.json
 .fusion/
-/nubank-engagement/
+# Per-engagement working dirs, wherever they live (root or vendor/pentdem/…).
+# Unanchored so nested ones are caught too (e.g. engagement-limercoin).
+*-engagement/
+engagement-*/
 
 # Local agent harness state
 .claude/
@@ -68,6 +71,9 @@ coverage.jsonl
 vendor/pentdem/skills/data/
 **/skills/data/pentest.db
 scan.js
+# Adaptive wordlist engine's learned-path memory: created per-user by
+# init_memory_db(); committing it leaks one operator's target paths to everyone.
+wordlist_memory.db
 
 # experiment run artifacts (regenerated per run, not source)
 experiment/*.log
