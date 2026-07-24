@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 REPOSITORY_URL="${MIMOCODE_REPOSITORY_URL:-https://github.com/victorccronemberger-blip/blip.git}"
-BRANCH="${MIMOCODE_BRANCH:-agent/platform-mcps}"
+BRANCH="${MIMOCODE_BRANCH:-main}"
 REPOSITORY_DIR="${MIMOCODE_SOURCE_DIR:-$HOME/blip}"
 PRESERVE_CONFIG=false
 INSTALL_SYSTEM_PACKAGES=true
@@ -25,7 +25,7 @@ MiMoCode + PentesterCode source installer for Linux
 Usage: ./install-linux.sh [options]
 
 Options:
-  --branch <name>          Git branch to install (default: agent/platform-mcps)
+  --branch <name>          Git branch to install (default: main)
   --repo-dir <path>        Source checkout (default: ~/blip)
   --preserve-config        Do not replace an existing ~/.mimocode/mimocode.jsonc
   --skip-system-packages   Do not invoke apt/dnf/pacman/apk

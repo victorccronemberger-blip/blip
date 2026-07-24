@@ -43,7 +43,7 @@ mimo
 The repository includes a source installer that installs the native toolchain, Bun and `node-gyp`, clones or updates the requested branch, repairs incomplete dependencies, builds the correct Linux artifact, verifies its SHA-256, installs MiMoCode and seeds PentesterCode:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/victorccronemberger-blip/blip/agent/platform-mcps/install-linux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/victorccronemberger-blip/blip/main/install-linux.sh | bash
 ```
 
 From an existing checkout:
