@@ -48,8 +48,11 @@ cmd_install() {
 
 cmd_update() {
   info "Updating MiMoCode/PentesterCode — pulls latest $BRANCH, rebuilds, keeps your config + credentials"
-  # --preserve-config: never overwrite ~/.mimocode/mimocode.jsonc or auth.json.
-  run_installer --preserve-config "$@"
+  # --preserve-config:      never overwrite ~/.mimocode/mimocode.jsonc or auth.json.
+  # --stash-local-changes:  the build dirties a tracked file (packages/opencode/bin/mimo),
+  #                         so a managed checkout is always "dirty" — stash it safely
+  #                         instead of aborting. install-linux.sh reports the stash ref.
+  run_installer --preserve-config --stash-local-changes "$@"
   ok "Update complete."
 }
 
