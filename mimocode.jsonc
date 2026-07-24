@@ -3,6 +3,11 @@
 
   // Config de PROJETO (versionada). Lida sempre que o app roda dentro deste
   // repositório, em qualquer OS, independente do MIMOCODE_HOME do modo dev.
+
+  // Nunca auto-atualizar: o updater embutido puxa o MiMoCode upstream original e
+  // sobrescreveria este fork (Antigravity/OmniRoute, pentestercode, plugins).
+  "autoupdate": false,
+
   "provider": {
     // Provedor local via LM Studio (Local API Server em http://localhost:1234).
     // Fallback para quando não há API key de provedor na nuvem.
